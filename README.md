@@ -1,6 +1,8 @@
 # Welcome to Keeper
 [Keeper](https://github.com/nragon/keeper) is an open source service manager. Currently, monitors home assistant service and mqtt services.
 MQTT service is monitored by checking connections to the service and home assistant is monitored using an heartbeating mechanism. Through MQTT we exchange heartbeat messages is home assistant in order to determine if its running.
+Every 3 missed messages between [Keeper](https://github.com/nragon/keeper) and home assistant, [Keeper](https://github.com/nragon/keeper) will attempt to restart home assistant. Then, if after 3 restarts home assistant still not responding, the system is rebooted.
+In MQTT case, it's only performed a service restart every 3 missed connections
 
 # Table of Contents
 - [Installation](#installation)
