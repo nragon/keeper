@@ -1,8 +1,8 @@
-#Welcome to Keeper
+# Welcome to Keeper
 [Keeper](https://github.com/nragon/keeper) is an open source service manager. Currently, monitors home assistant service and mqtt services.
 MQTT service is monitored by checking connections to the service and home assistant is monitored using an heartbeating mechanism. Through MQTT we exchange heartbeat messages is home assistant in order to determine if its running.
 
-#Installation
+# Installation
 Install the requirements
 ````
 python3 -m pip install -r requirements.txt
@@ -24,8 +24,8 @@ KillSignal=SIGTERM
 WantedBy=multi-user.target
 ````
 
-#Contributing
+# Contributing
 Pull requests and issues on [github](https://github.com/nragon/keeper) are very grateful. Feel free to suggest any improvement.
 
-#Licensing
+# Licensing
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
