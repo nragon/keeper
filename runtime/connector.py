@@ -14,8 +14,8 @@ def start():
     config = common.load_config()
     broker = config["mqtt.broker"]
     port = config["mqtt.port"]
-    user = config["mqtt.user"]
-    pwd = config["mqtt.pass"]
+    user = config.get("mqtt.user")
+    pwd = config.get("mqtt.pass")
     command = config["mqtt.command"].split(" ")
     del config
     try:
@@ -41,7 +41,9 @@ def connect(broker, port, user, pwd, command):
         try:
             logger.info("checking connection to %s:%s" % (broker, port))
             client = mqtt.Client(client_id="keeper_connector")
-            client.username_pw_set(user, pwd)
+            if user and pwd:
+                client.username_pw_set(user, pwd)
+
             client.connect(broker, port, 30)
             if client.loop() == 0:
                 logger.info("connection to %s:%s is ok" % (broker, port))

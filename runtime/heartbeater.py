@@ -15,8 +15,8 @@ def start():
     config = common.load_config()
     broker = config["mqtt.broker"]
     port = config["mqtt.port"]
-    user = config["mqtt.user"]
-    pwd = config["mqtt.pass"]
+    user = config.get("mqtt.user")
+    pwd = config.get("mqtt.pass")
     command = config["restart.command"].split(" ")
     topic = config["heartbeat.topic"]
     interval = config["heartbeat.interval"]
@@ -82,7 +82,9 @@ def connect(broker, port, user, pwd, topic):
                                  userdata={"topic": topic, "broker": broker, "port": port})
             client.on_connect = on_connect
             client.on_message = on_message
-            client.username_pw_set(user, pwd)
+            if user and pwd:
+                client.username_pw_set(user, pwd)
+
             client.connect(broker, port, 60)
             logger.info("listening for heartbeat messages")
 
