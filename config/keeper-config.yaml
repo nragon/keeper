@@ -1,0 +1,10 @@
+heartbeat.interval: 30
+heartbeat.delay: 10
+heartbeat.restart.delay: 180
+heartbeat.topic:
+restart.command:
+mqtt.broker:
+mqtt.port:
+mqtt.user:
+mqtt.pass:
+mqtt.command:
