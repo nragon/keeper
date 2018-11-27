@@ -1,17 +1,15 @@
-from os import getpid
 from signal import signal, SIGTERM, SIGINT
 from time import sleep
 import paho.mqtt.client as mqtt
 from datetime import datetime, timedelta
 from core import common, logger
 
-PID = getpid()
 last_message = None
 stopping = False
 
 
 def start():
-    logger.info("starting heartbeater[pid=%s]" % PID)
+    logger.info("starting heartbeater[pid=%s]" % common.PID)
     config = common.load_config()
     broker = config["mqtt.broker"]
     port = config["mqtt.port"]
@@ -65,13 +63,13 @@ def start():
 
                 sleep(1)
     finally:
-        logger.info("heartbeater[pid=%s] is stopping" % PID)
+        logger.info("heartbeater[pid=%s] is stopping" % common.PID)
         try:
             client.close()
         except:
             pass
 
-        logger.info("heartbeater[pid=%s] stopped" % PID)
+        logger.info("heartbeater[pid=%s] stopped" % common.PID)
 
 
 def connect(broker, port, user, pwd, topic):
