@@ -1,10 +1,10 @@
 from importlib import import_module
 from multiprocessing import Process
-from os import getpid, kill
+from os import kill
 from time import sleep
 from setproctitle import setproctitle
 
-from core import logger
+from core import logger, common
 
 PROCESSES = [
     "heartbeater",
@@ -15,7 +15,6 @@ MODULES = {
     "connector": "runtime.connector"
 }
 running = {}
-pid = getpid()
 
 
 def launcher(process, name):
@@ -41,7 +40,8 @@ def start_process(name):
             return process
         except Exception as e:
             if attempts >= 3:
-                logger.error("max of 3 launching attempts was reached when  launching process %s[module=%s]: %s", e)
+                logger.error("max of 3 launching attempts was reached when  launching process %s[module=%s]: %s" % (
+                    name, module, e))
                 raise
 
             logger.warning("error launching process %s[module=%s]: %s" % (name, module, e))
@@ -78,7 +78,7 @@ def is_running(process):
 
 
 def start():
-    logger.info("starting manager[pid=%s]" % pid)
+    logger.info("starting manager[pid=%s]" % common.PID)
     for name in PROCESSES:
         running[name] = start_process(name)
 
@@ -99,7 +99,7 @@ def start():
 
             sleep(30)
     finally:
-        logger.info("manager[pid=%s] is stopping" % pid)
+        logger.info("manager[pid=%s] is stopping" % common.PID)
 
 
 def close():
@@ -107,4 +107,4 @@ def close():
     for name, process in running.items():
         close_process(name, process)
 
-    logger.info("manager[pid=%s] stopped" % pid)
+    logger.info("manager[pid=%s] stopped" % common.PID)
