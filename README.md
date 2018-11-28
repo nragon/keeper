@@ -63,7 +63,7 @@ The number of seconds and topic are different depending on [Keeper](https://gith
       payload: "1"
 ````
 # Contributing
-Pull requests and issues on [github](https://github.com/nragon/keeper) are very grateful. Feel free to suggest any improvement.
+Pull requests and issues on [github](https://github.com/nragon/keeper) are welcome. Feel free to suggest any improvement.
 
 # Licensing
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
