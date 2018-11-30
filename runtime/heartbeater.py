@@ -1,15 +1,21 @@
+from os import getpid
 from signal import signal, SIGTERM, SIGINT
 from time import sleep
 import paho.mqtt.client as mqtt
 from datetime import datetime, timedelta
-from core import common, logger
+from core import common, logger, storage
 
+HEARTBEATER_STATUS = "heartbeaterStatus"
+HEARTBEATER_MISSED_HEARTBEAT = "heartbeaterMissedHeartbeat"
+HEARTBEATER_HA_RESTARTS = "heartbeaterHARestarts"
+HEARTBEATER_SYSTEM_RESTARTS = "heartbeaterSystemRestarts"
+PID = getpid()
 last_message = None
-stopping = False
+running = False
 
 
 def start():
-    logger.info("starting heartbeater[pid=%s]" % common.PID)
+    logger.info("starting heartbeater[pid=%s]" % PID)
     config = common.load_config()
     broker = config["mqtt.broker"]
     port = config["mqtt.port"]
@@ -21,55 +27,74 @@ def start():
     delay = config["heartbeat.delay"]
     restart_delay = config["heartbeat.restart.delay"]
     del config
-    now = datetime.now
-    global last_message
-    last_message = now() + timedelta(seconds=restart_delay)
+    with storage.get_connection() as conn:
+        storage.put(conn, HEARTBEATER_STATUS, common.STATUS_RUNNING)
+        try:
+            loop(conn, broker, port, user, pwd, topic, interval, delay, restart_delay, command)
+        finally:
+            storage.put(conn, HEARTBEATER_STATUS, common.STATUS_NOT_RUNNING)
+            logger.info("heartbeater[pid=%s] is stopping" % PID)
+
+
+def loop(conn, broker, port, user, pwd, topic, interval, delay, restart_delay, command):
+    inc = storage.inc
+    get_int = storage.get_int
+    missed_heartbeats = get_int(conn, HEARTBEATER_MISSED_HEARTBEAT)
+    if not missed_heartbeats:
+        missed_heartbeats = 0
+
+    ha_restarts = get_int(conn, HEARTBEATER_HA_RESTARTS)
+    if not ha_restarts:
+        ha_restarts = 0
+
+    system_restarts = get_int(conn, HEARTBEATER_SYSTEM_RESTARTS)
+    if not system_restarts:
+        system_restarts = 0
+
     attempts = 0
     misses = 0
     last_known_message = last_message
-    client = None
-    try:
-        client = connect(broker, port, user, pwd, topic)
-        while not stopping:
-            if client.loop() > 0 and not stopping:
-                client = connect(broker, port, user, pwd, topic)
-            else:
-                current = now()
-                diff = (current - last_message).total_seconds()
-                if diff > interval + delay:
-                    logger.warning("heartbeat threshold reached")
-                    if misses < 3:
-                        misses += 1
-                        last_message += timedelta(seconds=interval)
-                        logger.info("tolerating missed heartbeat (%s of 3)" % misses)
-                    elif attempts < 3:
-                        attempts += 1
-                        misses = 0
-                        logger.warning("max of misses reached")
-                        logger.info("restarting ha service (%s of 3) with command %s" % (attempts, command))
-                        common.exec_command(command)
+    now = datetime.now
+    global last_message
+    last_message = now() + timedelta(seconds=restart_delay)
+    client = connect(broker, port, user, pwd, topic)
+    global running
+    running = True
+    while running:
+        if client.loop() > 0 and running:
+            client = connect(broker, port, user, pwd, topic)
+        else:
+            current = now()
+            diff = (current - last_message).total_seconds()
+            if diff > interval + delay:
+                logger.warning("heartbeat threshold reached")
+                if misses < 3:
+                    misses += 1
+                    last_message += timedelta(seconds=interval)
+                    missed_heartbeats = inc(conn, HEARTBEATER_HA_RESTARTS, missed_heartbeats)
+                    logger.info("tolerating missed heartbeat (%s of 3)" % misses)
+                elif attempts < 3:
+                    attempts += 1
+                    misses = 0
+                    logger.warning("max of misses reached")
+                    logger.info("restarting ha service (%s of 3) with command %s" % (attempts, command))
+                    if common.exec_command(command):
+                        ha_restarts = inc(conn, HEARTBEATER_HA_RESTARTS, ha_restarts)
                         logger.info("waiting %s seconds for ha service to start" % restart_delay)
                         last_message = now() + timedelta(seconds=restart_delay)
-                    else:
-                        logger.warning("heartbeat still failing after 3 restarts")
-                        logger.info("rebooting")
-                        common.exec_command(["sudo", "reboot", "-f"])
+                else:
+                    logger.warning("heartbeat still failing after 3 restarts")
+                    logger.info("rebooting")
+                    system_restarts = inc(conn, HEARTBEATER_SYSTEM_RESTARTS, system_restarts)
+                    common.exec_command(["sudo", "reboot", "-f"])
 
-                    last_known_message = last_message
+                last_known_message = last_message
 
-                if last_known_message != last_message:
-                    misses = 0
-                    attempts = 0
+            if last_known_message != last_message:
+                misses = 0
+                attempts = 0
 
-                sleep(1)
-    finally:
-        logger.info("heartbeater[pid=%s] is stopping" % common.PID)
-        try:
-            client.close()
-        except:
-            pass
-
-        logger.info("heartbeater[pid=%s] stopped" % common.PID)
+            sleep(1)
 
 
 def connect(broker, port, user, pwd, topic):
@@ -103,15 +128,19 @@ def on_message(client, userdata, msg):
     last_message = datetime.now()
 
 
-def stop(signum=None, frame=None):
-    global stopping
-    stopping = True
+def stop():
+    global running
+    running = False
+
+
+def handle_signal(signum=None, frame=None):
+    stop()
     common.stop()
 
 
 def main():
-    signal(SIGTERM, stop)
-    signal(SIGINT, stop)
+    signal(SIGTERM, handle_signal)
+    signal(SIGINT, handle_signal)
     try:
         start()
     except KeyboardInterrupt:

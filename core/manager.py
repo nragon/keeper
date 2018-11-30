@@ -1,20 +1,23 @@
 from importlib import import_module
 from multiprocessing import Process
-from os import kill
+from os import kill, getpid
 from time import sleep
 from setproctitle import setproctitle
 
-from core import logger, common
+from core import logger, storage
 
 PROCESSES = [
     "heartbeater",
-    "connector"
+    "connector",
+    "reporter"
 ]
 MODULES = {
     "heartbeater": "runtime.heartbeater",
-    "connector": "runtime.connector"
+    "connector": "runtime.connector",
+    "reporter": "runtime.reporter"
 }
 running = {}
+PID = getpid()
 
 
 def launcher(process, name):
@@ -78,28 +81,42 @@ def is_running(process):
 
 
 def start():
-    logger.info("starting manager[pid=%s]" % common.PID)
-    for name in PROCESSES:
-        running[name] = start_process(name)
+    logger.info("starting manager[pid=%s]" % PID)
+    with storage.get_connection() as conn:
+        for name in PROCESSES:
+            metric = "%sStatus" % name
+            storage.put(conn, metric, "Launching")
+            running[name] = start_process(name)
+            storage.put(conn, metric, "Launched")
 
-    try:
+        try:
+            loop(conn)
+        finally:
+            logger.info("manager[pid=%s] is stopping" % PID)
+
+
+def loop(conn):
+    put = storage.put
+    sleep(30)
+    while 1:
+        for name in PROCESSES:
+            metric = "%s.status" % name
+            process = running.get(name)
+            if process and is_running(process):
+                put(conn, metric, "Running")
+                continue
+
+            put(conn, metric, "Not Running")
+            logger.info("process %s is not running" % name)
+            if process:
+                close_process(name, process)
+
+            put(conn, metric, "Launching")
+            process = start_process(name)
+            put(conn, metric, "Launched")
+            running[name] = process
+
         sleep(30)
-        while 1:
-            for name in PROCESSES:
-                process = running.get(name)
-                if process and is_running(process):
-                    continue
-
-                logger.info("process %s is not running" % name)
-                if process:
-                    close_process(name, process)
-
-                process = start_process(name)
-                running[name] = process
-
-            sleep(30)
-    finally:
-        logger.info("manager[pid=%s] is stopping" % common.PID)
 
 
 def close():
@@ -107,4 +124,4 @@ def close():
     for name, process in running.items():
         close_process(name, process)
 
-    logger.info("manager[pid=%s] stopped" % common.PID)
+    logger.info("manager[pid=%s] stopped" % PID)
