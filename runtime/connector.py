@@ -42,23 +42,23 @@ def loop(conn, broker, port, user, pwd, command):
     if not failed_connections:
         failed_connections = 0
 
-    client = connect(conn, broker, port, user, pwd, command)
     last_status = False
     put(conn, CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
     global running
     running = True
+    client = connect(conn, broker, port, user, pwd, command)
     while running:
         if client.loop() > 0 and running:
             failed_connections = inc(conn, CONNECTOR_FAILED_CONNECTIONS, failed_connections)
             if last_status:
                 put(conn, CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
-                last_status = 0
+                last_status = False
 
             client = connect(conn, broker, port, user, pwd, command)
         else:
             if not last_status:
                 put(conn, CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK)
-                last_status = 1
+                last_status = True
 
             sleep(1)
 

@@ -53,10 +53,10 @@ def loop(conn, broker, port, user, pwd, topic, interval, delay, restart_delay, c
 
     attempts = 0
     misses = 0
-    last_known_message = last_message
     now = datetime.now
     global last_message
     last_message = now() + timedelta(seconds=restart_delay)
+    last_known_message = last_message
     client = connect(broker, port, user, pwd, topic)
     global running
     running = True
@@ -71,7 +71,7 @@ def loop(conn, broker, port, user, pwd, topic, interval, delay, restart_delay, c
                 if misses < 3:
                     misses += 1
                     last_message += timedelta(seconds=interval)
-                    missed_heartbeats = inc(conn, HEARTBEATER_HA_RESTARTS, missed_heartbeats)
+                    missed_heartbeats = inc(conn, HEARTBEATER_MISSED_HEARTBEAT, missed_heartbeats)
                     logger.info("tolerating missed heartbeat (%s of 3)" % misses)
                 elif attempts < 3:
                     attempts += 1

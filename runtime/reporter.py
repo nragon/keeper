@@ -36,13 +36,13 @@ def loop(conn, broker, port, user, pwd):
     global running
     running = True
     client = connect(broker, port, user, pwd)
-    register(client, conn)
+    registered = register(client, conn)
     while running:
         if client.loop() > 0 and running:
             client = connect(broker, port, user, pwd)
         else:
             try:
-                send_report(client, conn)
+                send_report(registered, client, conn)
                 sleep(30)
             except Exception as e:
                 logger.error("failed to send report: %s" % e)
@@ -55,19 +55,27 @@ def register(client, conn):
             return
 
         for key in keys:
-            client.publish(REPORTER_CONFIG_TOPIC % key, REPORTER_CONFIG_PAYLOAD % {"s": key}, 1, True)
+            client.publish(REPORTER_CONFIG_TOPIC % key, REPORTER_CONFIG_PAYLOAD % {"s": key}, 1,
+                           True).wait_for_publish()
+
+        return list(keys)
     except Exception as e:
         logger.error("failed to register auto discover: %s" % e)
 
 
-def send_report(client, conn):
+def send_report(registered, client, conn):
     result = storage.get_all(conn)
     if not result:
         return
 
     report = {}
     for record in result:
-        report[record[0]] = record[1]
+        key = record[0]
+        report[key] = record[1]
+        if key not in registered:
+            client.publish(REPORTER_CONFIG_TOPIC % key, REPORTER_CONFIG_PAYLOAD % {"s": key}, 1,
+                           True).wait_for_publish()
+            registered.append(key)
 
     client.publish(REPORTER_TOPIC, dumps(report), 1, True)
 
