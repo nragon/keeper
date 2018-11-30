@@ -82,6 +82,7 @@ def is_running(process):
 
 def start():
     logger.info("starting manager[pid=%s]" % PID)
+    storage.setup()
     with storage.get_connection() as conn:
         for name in PROCESSES:
             metric = "%sStatus" % name
