@@ -1,10 +1,13 @@
 from importlib import import_module
+from json import dumps
 from multiprocessing import Process
 from os import kill, getpid
-from time import sleep
 from setproctitle import setproctitle
+from threading import Event
+from time import sleep
 
-from core import logger
+from core import logger, constants, common
+from core.mqtt import MqttClient
 from core.storage import Storage
 
 PROCESSES = [
@@ -17,8 +20,9 @@ MODULES = {
     "connector": "runtime.connector",
     "reporter": "runtime.reporter"
 }
-running = {}
-PID = getpid()
+running_processes = {}
+running = False
+wait_loop = Event()
 
 
 def launcher(process, name):
@@ -55,18 +59,30 @@ def start_process(name):
 
 def close_process(name, process):
     try:
-        logger.info("stopping process %s[pid=%s]" % (name, process.pid))
+        logger.info("stopping %s[pid=%s]" % (name, process.pid))
         process.terminate()
         process.join(3)
         if process.exitcode is None:
-            logger.info("stopping process %s[pid=%s] with SIGKILL" % (name, process.pid))
+            logger.info("stopping %s[pid=%s] with SIGKILL" % (name, process.pid))
             kill(process.pid, 9)
     except Exception:
         try:
-            logger.info("stopping process %s[pid=%s] with SIGKILL" % (name, process.pid))
+            logger.info("stopping %s[pid=%s] with SIGKILL" % (name, process.pid))
             kill(process.pid, 9)
         except Exception:
-            logger.info("unable to stop process %s[pid=%s]" % (name, process.pid))
+            logger.info("unable to stop %s[pid=%s]" % (name, process.pid))
+
+
+def wait_children():
+    while 1:
+        finished = True
+        for name, process in running_processes.items():
+            if process.exitcode is None:
+                finished = False
+
+        sleep(1)
+        if finished:
+            return
 
 
 def is_running(process):
@@ -82,33 +98,54 @@ def is_running(process):
 
 
 def start():
-    logger.init()
-    logger.info("starting manager[pid=%s]" % PID)
+    pid = getpid()
+    logger.init("manager")
+    logger.info("starting manager[pid=%s]" % pid)
     with Storage() as storage:
         for name in PROCESSES:
             metric = "%sStatus" % name
             storage.put(metric, "Launching")
-            running[name] = start_process(name)
+            running_processes[name] = start_process(name)
             storage.put(metric, "Launched")
 
         try:
             loop(storage)
         finally:
-            logger.info("manager[pid=%s] is stopping" % PID)
+            logger.info("waiting for all processes to finish")
+            wait_children()
+            logger.info("stopping manager[pid=%s]" % pid)
+            try:
+                for name in PROCESSES:
+                    metric = "%sStatus" % name
+                    storage.put_no_lock(metric, constants.STATUS_NOT_RUNNING)
+
+                result = storage.get_all()
+                if result:
+                    report = {}
+                    for record in result:
+                        report[record[0]] = record[1]
+
+                    mqtt_client = MqttClient("keepermanager", common.load_config())
+                    mqtt_client.connect()
+                    mqtt_client.publish(constants.REPORTER_TOPIC, dumps(report))
+            except Exception:
+                pass
 
 
 def loop(storage):
     put = storage.put
-    sleep(30)
-    while 1:
+    global running
+    running = True
+    wait_loop.wait(30)
+    while running:
         for name in PROCESSES:
-            metric = "%s.status" % name
-            process = running.get(name)
+            metric = "%sStatus" % name
+            process = running_processes.get(name)
             if process and is_running(process):
-                put(metric, "Running")
+                put(metric, constants.STATUS_RUNNING)
                 continue
 
-            put(metric, "Not Running")
+            put(metric, constants.STATUS_NOT_RUNNING)
             logger.info("process %s is not running" % name)
             if process:
                 close_process(name, process)
@@ -116,14 +153,12 @@ def loop(storage):
             put(metric, "Launching")
             process = start_process(name)
             put(metric, "Launched")
-            running[name] = process
+            running_processes[name] = process
 
-        sleep(30)
+        wait_loop.wait(30)
 
 
-def close():
-    logger.info("stopping all processes")
-    for name, process in running.items():
-        close_process(name, process)
-
-    logger.info("manager[pid=%s] stopped" % PID)
+def handle_signal(signum=None, frame=None):
+    global running
+    running = False
+    wait_loop.set()

@@ -40,10 +40,10 @@ class MqttClient(object):
         if on_connect:
             on_connect(client, userdata, flags, rc)
 
-    def _on_message(self, client):
+    def _on_message(self, client, userdata, message):
         on_message = self.on_message
         if on_message:
-            on_message(client)
+            on_message(client, userdata, message)
 
     def connection_status(self):
         try:
@@ -63,10 +63,16 @@ class MqttClient(object):
         status = connection_status()
         while status != 2:
             if status == 0:
-                reconnect()
+                try:
+                    reconnect()
+                except Exception:
+                    pass
 
             sleep(1)
             status = connection_status()
+
+    def connect(self):
+        self.client.reconnect()
 
     def reconnect(self, wait=True):
         client = self.client
@@ -81,14 +87,16 @@ class MqttClient(object):
 
                 status = connection_status()
             except Exception as e:
-                logger.info("unable to connect to %s:%s: %s" % (client._host, client._port, e))
+                pass
 
             on_not_connect = self.on_not_connect
             if status == 0 and on_not_connect:
-                on_not_connect(client)
+                on_not_connect()
 
             if not wait:
                 break
+
+            sleep(1)
 
         return status
 

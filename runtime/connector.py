@@ -1,3 +1,4 @@
+from json import dumps
 from os import getpid
 from signal import signal, SIGTERM, SIGINT
 from time import sleep
@@ -23,7 +24,7 @@ class Connector(object):
         self.put(constants.CONNECTOR_CONNECTION_STATUS, constants.CONNECTOR_CONNECTION_NOK)
         self.inc = storage.inc
 
-    def on_not_connect(self, client):
+    def on_not_connect(self):
         if self.attempts >= 3:
             logger.warning("max of 3 connection attempts was reached")
             logger.warning("restarting mqtt service")
@@ -35,7 +36,6 @@ class Connector(object):
             self.attempts += 1
             self.failed_connections = self.inc(constants.CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
             logger.warning("broker is not responding (%s of 3)" % self.attempts)
-            logger.warning("retrying in 5 seconds")
             sleep(5)
 
     def reconnect(self, wait=True):
@@ -58,16 +58,22 @@ def start():
         storage.put(constants.CONNECTOR_STATUS, constants.STATUS_RUNNING)
         try:
             loop(mqtt_client, connector)
+        except Exception as e:
+            if running:
+                raise e
         finally:
-            logger.info("connector[pid=%s] is stopping" % pid)
-            storage.put(constants.CONNECTOR_STATUS, constants.STATUS_NOT_RUNNING)
-            mqtt_client.disconnect()
+            logger.info("stopping connector[pid=%s]" % pid)
+            try:
+                storage.put(constants.CONNECTOR_STATUS, constants.STATUS_NOT_RUNNING)
+                mqtt_client.disconnect()
+            except Exception:
+                pass
 
 
 def loop(mqtt_client, connector):
     global running
     running = True
-    connector.reconnect()
+    connector.connect()
     while running:
         if mqtt_client.connection_status() != 2 and running:
             connector.reconnect()
@@ -80,14 +86,9 @@ def get_metrics_defaults():
             constants.CONNECTOR_CONNECTION_STATUS]
 
 
-def stop():
+def handle_signal(signum=None, frame=None):
     global running
     running = False
-
-
-def handle_signal(signum=None, frame=None):
-    stop()
-    common.stop(signum, frame)
 
 
 def main():

@@ -23,7 +23,8 @@ class Storage(object):
             makedirs(storage_path)
 
         storage_path = join(storage_path, "keeper.db")
-        with closing(sqlite3.connect(storage_path)) as conn:
+
+        with closing(sqlite3.connect(storage_path)) as conn, lock:
             c = conn.cursor()
             c.execute("create table if not exists keystore(key text primary key, value text)")
 
@@ -32,13 +33,18 @@ class Storage(object):
 
     def __enter__(self):
         self.conn = sqlite3.connect(self.storage_path)
+        self.conn.execute("pragma journal_mode=wal")
 
         return self
 
     def __exit__(self, type, value, traceback):
         conn = self.conn
         if conn:
-            conn.close()
+            try:
+                conn.close()
+            except Exception:
+                pass
+
             self.conn = None
 
     def put(self, key, value):
@@ -50,6 +56,17 @@ class Storage(object):
             cursor.execute(Storage.INSERT_STATEMENT, (key, value))
             cursor.execute(Storage.UPDATE_STATEMENT, (value, key))
             self.conn.commit()
+
+        return value
+
+    def put_no_lock(self, key, value):
+        if isinstance(value, Storage.NUMBER_TYPE):
+            value = str(value)
+
+        cursor = self.conn.cursor()
+        cursor.execute(Storage.INSERT_STATEMENT, (key, value))
+        cursor.execute(Storage.UPDATE_STATEMENT, (value, key))
+        self.conn.commit()
 
         return value
 

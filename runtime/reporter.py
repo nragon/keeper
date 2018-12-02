@@ -1,8 +1,7 @@
 from json import dumps
 from os import getpid
-
 from signal import signal, SIGTERM, SIGINT
-from time import sleep
+from threading import Event
 
 from core import common, logger, constants
 from core.mqtt import MqttClient
@@ -10,6 +9,7 @@ from core.storage import Storage
 from runtime import heartbeater, connector
 
 running = False
+wait_loop = Event()
 
 
 class Reporter(object):
@@ -55,10 +55,16 @@ def start():
         storage.put(constants.REPORTER_STATUS, constants.STATUS_RUNNING)
         try:
             loop(reporter, mqtt_client)
+        except Exception as e:
+            if running:
+                raise e
         finally:
             logger.info("stopping reporter[pid=%s]" % pid)
-            storage.put(constants.REPORTER_STATUS, constants.STATUS_NOT_RUNNING)
-            mqtt_client.disconnect()
+            try:
+                storage.put(constants.REPORTER_STATUS, constants.STATUS_NOT_RUNNING)
+                mqtt_client.disconnect()
+            except Exception:
+                pass
 
 
 def loop(reporter, mqtt_client):
@@ -70,17 +76,13 @@ def loop(reporter, mqtt_client):
             mqtt_client.wait_connection()
 
         reporter.send_report()
-        sleep(30)
-
-
-def stop():
-    global running
-    running = False
+        wait_loop.wait(30)
 
 
 def handle_signal(signum=None, frame=None):
-    stop()
-    common.stop(signum, frame)
+    global running
+    running = False
+    wait_loop.set()
 
 
 def main():
@@ -92,4 +94,4 @@ def main():
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        logger.error("An error occurred during watcher execution: %s" % e)
+        logger.error("An error occurred during reporter execution: %s" % e)

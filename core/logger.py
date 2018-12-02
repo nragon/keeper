@@ -7,9 +7,9 @@ from core import constants
 PROCESS_NAME = None
 
 
-def init():
+def init(process_name=None):
     global PROCESS_NAME
-    PROCESS_NAME = current_process().name
+    PROCESS_NAME = process_name if process_name else current_process().name
 
 
 def info(message):

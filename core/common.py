@@ -25,4 +25,4 @@ def exec_command(command):
 
 
 def stop(signum=None, frame=None):
-    sys.exit(0)
+    pass
