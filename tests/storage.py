@@ -4,84 +4,75 @@ from shutil import rmtree
 from unittest import TestCase
 
 environ["KEEPER_HOME"] = join(getcwd(), "storage")
-from core import storage
+from core.storage import Storage
 
 
-class Storage(TestCase):
-    def setUp(self):
-        storage.setup()
-
+class TestStorage(TestCase):
     def tearDown(self):
         rmtree(environ["KEEPER_HOME"])
 
     def test_put_str(self):
-        with storage.get_connection() as conn:
-            storage.put(conn, "a", "a")
-            self.assertEqual(storage.get(conn, "a"), "a")
+        with Storage() as storage:
+            storage.put("a", "a")
+            self.assertEqual(storage.get("a"), "a")
 
-        with storage.get_connection() as conn:
-            storage.put(conn, "b", "a")
+        with Storage() as storage:
+            storage.put("b", "a")
 
-        with storage.get_connection() as conn:
-            self.assertEqual(storage.get(conn, "b"), "a")
+        with Storage() as storage:
+            self.assertEqual(storage.get("b"), "a")
 
     def test_put_int(self):
-        with storage.get_connection() as conn:
-            storage.put(conn, "a", 1)
-            self.assertEqual(storage.get_int(conn, "a"), 1)
+        with Storage() as storage:
+            storage.put("a", 1)
+            self.assertEqual(storage.get_int("a"), 1)
 
-        with storage.get_connection() as conn:
-            storage.put(conn, "b", 1)
+        with Storage() as storage:
+            storage.put("b", 1)
 
-        with storage.get_connection() as conn:
-            self.assertEqual(storage.get_int(conn, "b"), 1)
+        with Storage() as storage:
+            self.assertEqual(storage.get_int("b"), 1)
 
     def test_put_float(self):
-        with storage.get_connection() as conn:
-            storage.put(conn, "a", 1.1)
-            self.assertEqual(storage.get_float(conn, "a"), 1.1)
+        with Storage() as storage:
+            storage.put("a", 1.1)
+            self.assertEqual(storage.get_float("a"), 1.1)
 
-        with storage.get_connection() as conn:
-            storage.put(conn, "b", 1.1)
+        with Storage() as storage:
+            storage.put("b", 1.1)
 
-        with storage.get_connection() as conn:
-            self.assertEqual(storage.get_float(conn, "b"), 1.1)
+        with Storage() as storage:
+            self.assertEqual(storage.get_float("b"), 1.1)
 
     def test_inc(self):
         value = 1
-        with storage.get_connection() as conn:
-            value = storage.inc(conn, "a", value)
-            self.assertEqual(storage.get_float(conn, "a"), value)
+        with Storage() as storage:
+            value = storage.inc("a", value)
+            self.assertEqual(storage.get_float("a"), value)
 
     def test_inc_multiple(self):
         value = 1
-        with storage.get_connection() as conn:
-            value = storage.inc(conn, "a", value, 2)
-            self.assertEqual(storage.get_float(conn, "a"), value)
+        with Storage() as storage:
+            value = storage.inc("a", value, 2)
+            self.assertEqual(storage.get_float("a"), value)
 
     def test_update(self):
-        with storage.get_connection() as conn:
-            storage.put(conn, "a", "a")
-            self.assertEqual(storage.get(conn, "a"), "a")
+        with Storage() as storage:
+            storage.put("a", "a")
+            self.assertEqual(storage.get("a"), "a")
 
-        with storage.get_connection() as conn:
-            storage.put(conn, "a", "b")
+        with Storage() as storage:
+            storage.put("a", "b")
 
-        with storage.get_connection() as conn:
-            self.assertEqual(storage.get(conn, "a"), "b")
+        with Storage() as storage:
+            self.assertEqual(storage.get("a"), "b")
 
     def test_get_not_exists(self):
-        with storage.get_connection() as conn:
-            self.assertEqual(storage.get(conn, "c"), None)
-
-    def test_get_keys(self):
-        with storage.get_connection() as conn:
-            storage.put(conn, "a", "a")
-            storage.put(conn, "b", "b")
-            self.assertEqual(list(storage.get_keys(conn)), ["a", "b"])
+        with Storage() as storage:
+            self.assertEqual(storage.get("c"), None)
 
     def test_get_all(self):
-        with storage.get_connection() as conn:
-            storage.put(conn, "a", "a")
-            storage.put(conn, "b", "b")
-            self.assertEqual(storage.get_all(conn), [("a", "a"), ("b", "b")])
+        with Storage() as storage:
+            storage.put("a", "a")
+            storage.put("b", "b")
+            self.assertEqual(storage.get_all(), [("a", "a"), ("b", "b")])

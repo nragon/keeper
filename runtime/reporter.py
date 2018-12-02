@@ -1,100 +1,76 @@
 from json import dumps
 from os import getpid
 
-import paho.mqtt.client as mqtt
 from signal import signal, SIGTERM, SIGINT
 from time import sleep
 
-from core import common, logger, storage
+from core import common, logger, constants
+from core.mqtt import MqttClient
+from core.storage import Storage
+from runtime import heartbeater, connector
 
-REPORTER_CONFIG_TOPIC = "homeassistant/sensor/keeperReporter-%s/config"
-REPORTER_CONFIG_PAYLOAD = "{\"name\": \"keeperReport-%(s)s\", \"state_topic\": \"homeassistant/sensor/keeperReporter/state\", \"value_template\": \"{{ value_json.%(s)s }}\"}"
-REPORTER_TOPIC = "homeassistant/sensor/keeperReporter/state"
-REPORTER_STATUS = "reporterStatus"
-PID = getpid()
 running = False
 
 
-def start():
-    logger.info("starting reported[pid=%s]" % PID)
-    config = common.load_config()
-    broker = config["mqtt.broker"]
-    port = config["mqtt.port"]
-    user = config.get("mqtt.user")
-    pwd = config.get("mqtt.pass")
-    del config
-    with storage.get_connection() as conn:
-        storage.put(conn, REPORTER_STATUS, common.STATUS_RUNNING)
+class Reporter(object):
+    def __init__(self, storage, mqtt_client):
+        mqtt_client.on_connect = self.register
+        self.mqtt_client = mqtt_client
+        self.get_all = storage.get_all
+
+    def register(self):
         try:
-            loop(conn, broker, port, user, pwd)
-        finally:
-            storage.put(conn, REPORTER_STATUS, common.STATUS_NOT_RUNNING)
-            logger.info("stopping watcher[pid=%s]" % PID)
+            for key in heartbeater.get_metrics_defaults():
+                self.mqtt_client.publish(constants.REPORTER_CONFIG_TOPIC % key,
+                                         constants.REPORTER_CONFIG_PAYLOAD % {"s": key})
 
+            for key in connector.get_metrics_defaults():
+                self.mqtt_client.publish(constants.REPORTER_CONFIG_TOPIC % key,
+                                         constants.REPORTER_CONFIG_PAYLOAD % {"s": key})
 
-def loop(conn, broker, port, user, pwd):
-    global running
-    running = True
-    client = connect(broker, port, user, pwd)
-    registered = register(client, conn)
-    while running:
-        if client.loop() > 0 and running:
-            client = connect(broker, port, user, pwd)
-        else:
-            try:
-                send_report(registered, client, conn)
-                sleep(30)
-            except Exception as e:
-                logger.error("failed to send report: %s" % e)
+        except Exception as e:
+            logger.error("failed to register auto discover: %s" % e)
 
-
-def register(client, conn):
-    try:
-        keys = storage.get_keys(conn)
-        if not keys:
+    def send_report(self):
+        result = self.get_all()
+        if not result:
             return
 
-        for key in keys:
-            client.publish(REPORTER_CONFIG_TOPIC % key, REPORTER_CONFIG_PAYLOAD % {"s": key}, 1,
-                           True).wait_for_publish()
+        report = {}
+        for record in result:
+            report[record[0]] = record[1]
 
-        return list(keys)
-    except Exception as e:
-        logger.error("failed to register auto discover: %s" % e)
+        self.mqtt_client.publish(constants.REPORTER_TOPIC, dumps(report))
 
-
-def send_report(registered, client, conn):
-    result = storage.get_all(conn)
-    if not result:
-        return
-
-    report = {}
-    for record in result:
-        key = record[0]
-        report[key] = record[1]
-        if key not in registered:
-            client.publish(REPORTER_CONFIG_TOPIC % key, REPORTER_CONFIG_PAYLOAD % {"s": key}, 1,
-                           True).wait_for_publish()
-            registered.append(key)
-
-    client.publish(REPORTER_TOPIC, dumps(report), 1, True)
+    def connect(self, wait=True):
+        self.mqtt_client.reconnect(wait)
 
 
-def connect(broker, port, user, pwd):
-    while running:
+def start():
+    pid = getpid()
+    logger.info("starting reported[pid=%s]" % pid)
+    mqtt_client = MqttClient("keeperreporter", common.load_config())
+    with Storage() as storage:
+        reporter = Reporter(storage, mqtt_client)
+        storage.put(constants.REPORTER_STATUS, constants.STATUS_RUNNING)
         try:
-            logger.info("connecting to %s:%s" % (broker, port))
-            client = mqtt.Client(client_id="visionreporter")
-            if user and pwd:
-                client.username_pw_set(user, pwd)
+            loop(reporter, mqtt_client)
+        finally:
+            logger.info("stopping reporter[pid=%s]" % pid)
+            storage.put(constants.REPORTER_STATUS, constants.STATUS_NOT_RUNNING)
+            mqtt_client.disconnect()
 
-            client.connect(broker, port, 60)
 
-            return client
-        except Exception as e:
-            logger.warning("unable to connect %s:%s: %s" % (broker, port, e))
-            logger.warning("retrying in 10 seconds")
-            sleep(10)
+def loop(reporter, mqtt_client):
+    global running
+    running = True
+    reporter.connect()
+    while running:
+        if mqtt_client.connection_status() != 2 and running:
+            mqtt_client.wait_connection()
+
+        reporter.send_report()
+        sleep(30)
 
 
 def stop():
@@ -104,12 +80,13 @@ def stop():
 
 def handle_signal(signum=None, frame=None):
     stop()
-    common.stop()
+    common.stop(signum, frame)
 
 
 def main():
     signal(SIGTERM, handle_signal)
     signal(SIGINT, handle_signal)
+    logger.init()
     try:
         start()
     except KeyboardInterrupt:

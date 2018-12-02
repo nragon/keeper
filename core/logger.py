@@ -2,23 +2,27 @@ from multiprocessing import current_process
 
 from time import strftime
 
-TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-INFO = "INFO"
-WARN = "WARN"
-ERROR = "ERROR"
+from core import constants
+
+PROCESS_NAME = None
+
+
+def init():
+    global PROCESS_NAME
+    PROCESS_NAME = current_process().name
 
 
 def info(message):
-    log(INFO, message)
+    log(constants.INFO, message)
 
 
 def warning(message):
-    log(WARN, message)
+    log(constants.WARN, message)
 
 
 def error(message):
-    log(ERROR, message)
+    log(constants.ERROR, message)
 
 
 def log(level, message):
-    print("%s %s-keeper[%s]: %s" % (strftime(TIME_FORMAT), current_process().name, level, message))
+    print("%s %s-keeper[%s]: %s" % (strftime(constants.TIME_FORMAT), PROCESS_NAME, level, message))

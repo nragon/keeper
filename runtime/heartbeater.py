@@ -1,131 +1,123 @@
 from os import getpid
 from signal import signal, SIGTERM, SIGINT
 from time import sleep
-import paho.mqtt.client as mqtt
 from datetime import datetime, timedelta
-from core import common, logger, storage
+from core import common, logger, constants
+from core.mqtt import MqttClient
+from core.storage import Storage
 
-HEARTBEATER_STATUS = "heartbeaterStatus"
-HEARTBEATER_MISSED_HEARTBEAT = "heartbeaterMissedHeartbeat"
-HEARTBEATER_HA_RESTARTS = "heartbeaterHARestarts"
-HEARTBEATER_SYSTEM_RESTARTS = "heartbeaterSystemRestarts"
-PID = getpid()
-last_message = None
 running = False
 
 
+class Heartbeater(object):
+    def __init__(self, interval, delay, topic, command, storage, mqtt_client):
+        self.attempts = 0
+        self.misses = 0
+        self.missed_heartbeats = storage.get_int(constants.HEARTBEATER_MISSED_HEARTBEAT)
+        self.ha_restarts = storage.get_int(constants.HEARTBEATER_HA_RESTARTS)
+        self.system_restarts = storage.get_int(constants.HEARTBEATER_SYSTEM_RESTARTS)
+        self.command = command
+        mqtt_client.on_message = self.recv
+        mqtt_client.on_connect = self.subscribe
+        mqtt_client.on_not_connect = Heartbeater.on_not_connect
+        self.mqtt_client = mqtt_client
+        self.inc = storage.inc
+        self.last_status = False
+        self.put = storage.put
+        self.put(constants.CONNECTOR_CONNECTION_STATUS, constants.CONNECTOR_CONNECTION_NOK)
+        self.now = datetime.now
+        self.last_message = None
+        self.last_known_message = None
+        self.interval = interval
+        self.topic = topic
+        self.delay = delay
+        self.inc = storage.inc
+
+    def subscribe(self, client):
+        client.subscribe(self.topic)
+
+    @staticmethod
+    def on_not_connect(client):
+        logger.warning("unable to connect %s:%s" % (client._host, client._port))
+        logger.warning("retrying in 10 seconds")
+        sleep(10)
+
+    def reconnect(self, wait=True):
+        self.mqtt_client.reconnect(wait)
+
+    def connect(self, wait=True):
+        self.mqtt_client.reconnect(wait)
+
+    def recv(self):
+        self.last_message = self.now()
+
+    def wait_ha_connection(self):
+        self.last_message = self.now()
+
+    def monitor(self):
+        diff = (self.now() - self.last_message).total_seconds()
+        if diff > self.interval + self.delay:
+            logger.warning("heartbeat threshold reached")
+            if self.misses < 3:
+                self.misses += 1
+                self.last_message += timedelta(seconds=self.interval)
+                self.missed_heartbeats = self.inc(constants.HEARTBEATER_MISSED_HEARTBEAT, self.missed_heartbeats)
+                logger.info("tolerating missed heartbeat (%s of 3)" % self.misses)
+            elif self.attempts < 3:
+                self.attempts += 1
+                self.misses = 0
+                logger.warning("max of misses reached")
+                logger.info("restarting ha service (%s of 3) with command %s" % (self.attempts, " ".join(self.command)))
+                if common.exec_command(self.command):
+                    self.ha_restarts = self.inc(constants.HEARTBEATER_HA_RESTARTS, self.ha_restarts)
+                    self.wait_ha_connection()
+            else:
+                logger.warning("heartbeat still failing after 3 restarts")
+                logger.info("rebooting")
+                self.system_restarts = self.inc(constants.HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
+                common.exec_command(["sudo", "reboot", "-f"])
+
+            self.last_known_message = self.last_message
+
+        if self.last_known_message != self.last_message:
+            self.misses = 0
+            self.attempts = 0
+
+
 def start():
-    logger.info("starting heartbeater[pid=%s]" % PID)
+    pid = getpid()
+    logger.info("starting heartbeater[pid=%s]" % pid)
     config = common.load_config()
-    broker = config["mqtt.broker"]
-    port = config["mqtt.port"]
-    user = config.get("mqtt.user")
-    pwd = config.get("mqtt.pass")
-    command = config["restart.command"].split(" ")
-    topic = config["heartbeat.topic"]
-    interval = config["heartbeat.interval"]
-    delay = config["heartbeat.delay"]
-    restart_delay = config["heartbeat.restart.delay"]
-    del config
-    with storage.get_connection() as conn:
-        storage.put(conn, HEARTBEATER_STATUS, common.STATUS_RUNNING)
+    mqtt_client = MqttClient("keeperheartbeater", config)
+    with Storage() as storage:
+        heartbeater = Heartbeater(config["heartbeat.interval"], config["heartbeat.delay"], config["heartbeat.topic"],
+                                  config["mqtt.command"].split(" "), storage, mqtt_client)
+        del config
+        storage.put(constants.HEARTBEATER_STATUS, constants.STATUS_RUNNING)
         try:
-            loop(conn, broker, port, user, pwd, topic, interval, delay, restart_delay, command)
+            loop(mqtt_client, heartbeater)
         finally:
-            storage.put(conn, HEARTBEATER_STATUS, common.STATUS_NOT_RUNNING)
-            logger.info("heartbeater[pid=%s] is stopping" % PID)
+            logger.info("heartbeater[pid=%s] is stopping" % pid)
+            storage.put(constants.HEARTBEATER_STATUS, constants.STATUS_NOT_RUNNING)
+            mqtt_client.disconnect()
 
 
-def loop(conn, broker, port, user, pwd, topic, interval, delay, restart_delay, command):
-    inc = storage.inc
-    get_int = storage.get_int
-    missed_heartbeats = get_int(conn, HEARTBEATER_MISSED_HEARTBEAT)
-    if not missed_heartbeats:
-        missed_heartbeats = 0
-
-    ha_restarts = get_int(conn, HEARTBEATER_HA_RESTARTS)
-    if not ha_restarts:
-        ha_restarts = 0
-
-    system_restarts = get_int(conn, HEARTBEATER_SYSTEM_RESTARTS)
-    if not system_restarts:
-        system_restarts = 0
-
-    attempts = 0
-    misses = 0
-    now = datetime.now
-    global last_message
-    last_message = now() + timedelta(seconds=restart_delay)
-    last_known_message = last_message
-    client = connect(broker, port, user, pwd, topic)
+def loop(mqtt_client, heartbeater):
     global running
     running = True
+    heartbeater.wait_ha_connection()
     while running:
-        if client.loop() > 0 and running:
-            client = connect(broker, port, user, pwd, topic)
-        else:
-            current = now()
-            diff = (current - last_message).total_seconds()
-            if diff > interval + delay:
-                logger.warning("heartbeat threshold reached")
-                if misses < 3:
-                    misses += 1
-                    last_message += timedelta(seconds=interval)
-                    missed_heartbeats = inc(conn, HEARTBEATER_MISSED_HEARTBEAT, missed_heartbeats)
-                    logger.info("tolerating missed heartbeat (%s of 3)" % misses)
-                elif attempts < 3:
-                    attempts += 1
-                    misses = 0
-                    logger.warning("max of misses reached")
-                    logger.info("restarting ha service (%s of 3) with command %s" % (attempts, command))
-                    if common.exec_command(command):
-                        ha_restarts = inc(conn, HEARTBEATER_HA_RESTARTS, ha_restarts)
-                        logger.info("waiting %s seconds for ha service to start" % restart_delay)
-                        last_message = now() + timedelta(seconds=restart_delay)
-                else:
-                    logger.warning("heartbeat still failing after 3 restarts")
-                    logger.info("rebooting")
-                    system_restarts = inc(conn, HEARTBEATER_SYSTEM_RESTARTS, system_restarts)
-                    common.exec_command(["sudo", "reboot", "-f"])
+        if mqtt_client.connection_status() != 2 and running:
+            heartbeater.reconnect()
 
-                last_known_message = last_message
-
-            if last_known_message != last_message:
-                misses = 0
-                attempts = 0
-
-            sleep(1)
+        mqtt_client.loop()
+        heartbeater.monitor()
+        sleep(1)
 
 
-def connect(broker, port, user, pwd, topic):
-    while 1:
-        try:
-            logger.info("connecting to %s:%s" % (broker, port))
-            client = mqtt.Client(client_id="keeper_heartbeater",
-                                 userdata={"topic": topic, "broker": broker, "port": port})
-            client.on_connect = on_connect
-            client.on_message = on_message
-            if user and pwd:
-                client.username_pw_set(user, pwd)
-
-            client.connect(broker, port, 60)
-            logger.info("listening for heartbeat messages")
-
-            return client
-        except:
-            logger.warning("unable to connect %s:%s" % (broker, port))
-            logger.warning("retrying in 10 seconds")
-            sleep(10)
-
-
-def on_connect(client, userdata, flags, rc):
-    logger.info("connected to %s:%s" % (userdata["broker"], userdata["port"]))
-    client.subscribe(userdata["topic"])
-
-
-def on_message(client, userdata, msg):
-    global last_message
-    last_message = datetime.now()
+def get_metrics_defaults():
+    return [constants.HEARTBEATER_STATUS, constants.HEARTBEATER_MISSED_HEARTBEAT, constants.HEARTBEATER_HA_RESTARTS,
+            constants.HEARTBEATER_SYSTEM_RESTARTS]
 
 
 def stop():
@@ -135,12 +127,13 @@ def stop():
 
 def handle_signal(signum=None, frame=None):
     stop()
-    common.stop()
+    common.stop(signum, frame)
 
 
 def main():
     signal(SIGTERM, handle_signal)
     signal(SIGINT, handle_signal)
+    logger.init()
     try:
         start()
     except KeyboardInterrupt:

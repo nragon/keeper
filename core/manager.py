@@ -4,7 +4,8 @@ from os import kill, getpid
 from time import sleep
 from setproctitle import setproctitle
 
-from core import logger, storage
+from core import logger
+from core.storage import Storage
 
 PROCESSES = [
     "heartbeater",
@@ -60,11 +61,11 @@ def close_process(name, process):
         if process.exitcode is None:
             logger.info("stopping process %s[pid=%s] with SIGKILL" % (name, process.pid))
             kill(process.pid, 9)
-    except:
+    except Exception:
         try:
             logger.info("stopping process %s[pid=%s] with SIGKILL" % (name, process.pid))
             kill(process.pid, 9)
-        except:
+        except Exception:
             logger.info("unable to stop process %s[pid=%s]" % (name, process.pid))
 
 
@@ -76,27 +77,27 @@ def is_running(process):
         kill(process.pid, 0)
 
         return 1
-    except:
+    except Exception:
         return 0
 
 
 def start():
+    logger.init()
     logger.info("starting manager[pid=%s]" % PID)
-    storage.setup()
-    with storage.get_connection() as conn:
+    with Storage() as storage:
         for name in PROCESSES:
             metric = "%sStatus" % name
-            storage.put(conn, metric, "Launching")
+            storage.put(metric, "Launching")
             running[name] = start_process(name)
-            storage.put(conn, metric, "Launched")
+            storage.put(metric, "Launched")
 
         try:
-            loop(conn)
+            loop(storage)
         finally:
             logger.info("manager[pid=%s] is stopping" % PID)
 
 
-def loop(conn):
+def loop(storage):
     put = storage.put
     sleep(30)
     while 1:
@@ -104,17 +105,17 @@ def loop(conn):
             metric = "%s.status" % name
             process = running.get(name)
             if process and is_running(process):
-                put(conn, metric, "Running")
+                put(metric, "Running")
                 continue
 
-            put(conn, metric, "Not Running")
+            put(metric, "Not Running")
             logger.info("process %s is not running" % name)
             if process:
                 close_process(name, process)
 
-            put(conn, metric, "Launching")
+            put(metric, "Launching")
             process = start_process(name)
-            put(conn, metric, "Launched")
+            put(metric, "Launched")
             running[name] = process
 
         sleep(30)
