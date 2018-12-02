@@ -1,7 +1,7 @@
 from json import dumps
 from os import getpid
 from signal import signal, SIGTERM, SIGINT
-from time import sleep
+from time import sleep, strftime
 from datetime import datetime, timedelta
 from core import common, logger, constants
 from core.mqtt import MqttClient
@@ -24,14 +24,12 @@ class Heartbeater(object):
         self.inc = storage.inc
         self.last_status = False
         self.put = storage.put
-        self.put(constants.CONNECTOR_CONNECTION_STATUS, constants.CONNECTOR_CONNECTION_NOK)
         self.now = datetime.now
         self.last_message = None
         self.last_known_message = None
         self.interval = interval
         self.topic = topic
         self.delay = delay
-        self.inc = storage.inc
 
     def subscribe(self, client, userdata, flags, rc):
         logger.info("subscribing topic %s" % self.topic)
@@ -42,6 +40,7 @@ class Heartbeater(object):
 
     def recv(self, client, userdata, message):
         self.last_message = self.now()
+        self.put(constants.HEARTBEATER_LAST_HEARTBEAT, strftime(constants.TIME_FORMAT))
 
     def wait_ha_connection(self):
         self.last_message = None
@@ -129,7 +128,7 @@ def loop(mqtt_client, heartbeater):
 
 def get_metrics_defaults():
     return [constants.HEARTBEATER_STATUS, constants.HEARTBEATER_MISSED_HEARTBEAT, constants.HEARTBEATER_HA_RESTARTS,
-            constants.HEARTBEATER_SYSTEM_RESTARTS]
+            constants.HEARTBEATER_SYSTEM_RESTARTS, constants.HEARTBEATER_LAST_HEARTBEAT]
 
 
 def handle_signal(signum=None, frame=None):

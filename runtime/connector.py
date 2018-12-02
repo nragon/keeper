@@ -17,7 +17,6 @@ class Connector(object):
         self.command = command
         mqtt_client.on_not_connect = self.on_not_connect
         self.mqtt_client = mqtt_client
-        self.inc = storage.inc
         self.failed_connections = storage.get_int(constants.CONNECTOR_FAILED_CONNECTIONS)
         self.last_status = False
         self.put = storage.put

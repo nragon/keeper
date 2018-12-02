@@ -18,7 +18,7 @@ class Reporter(object):
         self.mqtt_client = mqtt_client
         self.get_all = storage.get_all
 
-    def register(self):
+    def register(self, client, userdata, flags, rc):
         try:
             for key in heartbeater.get_metrics_defaults():
                 self.mqtt_client.publish(constants.REPORTER_CONFIG_TOPIC % key,
@@ -76,7 +76,7 @@ def loop(reporter, mqtt_client):
             mqtt_client.wait_connection()
 
         reporter.send_report()
-        wait_loop.wait(30)
+        wait_loop.wait(15)
 
 
 def handle_signal(signum=None, frame=None):

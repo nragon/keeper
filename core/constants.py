@@ -17,6 +17,7 @@ HEARTBEATER_STATUS = "heartbeaterStatus"
 HEARTBEATER_MISSED_HEARTBEAT = "heartbeaterMissedHeartbeat"
 HEARTBEATER_HA_RESTARTS = "heartbeaterHARestarts"
 HEARTBEATER_SYSTEM_RESTARTS = "heartbeaterSystemRestarts"
+HEARTBEATER_LAST_HEARTBEAT = "heartbeaterLastHeartbeat"
 REPORTER_CONFIG_TOPIC = "homeassistant/sensor/keeperReporter-%s/config"
 REPORTER_CONFIG_PAYLOAD = "{\"name\": \"keeperReport-%(s)s\", \"state_topic\": " \
                           "\"homeassistant/sensor/keeperReporter/state\", \"value_template\": \"{{ value_json.%(s)s " \
