@@ -23,7 +23,7 @@ cd keeper-<versions>
 Execute installer script
 ````
 chmod 755 installer.sh
-sudo installer.sh
+sudo ./installer.sh
 ````
 Follow instructions
 
