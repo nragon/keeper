@@ -28,6 +28,10 @@ class Reporter(object):
                 self.mqtt_client.publish(constants.REPORTER_CONFIG_TOPIC % key,
                                          constants.REPORTER_CONFIG_PAYLOAD % {"s": key})
 
+            for key in get_metrics_defaults():
+                self.mqtt_client.publish(constants.REPORTER_CONFIG_TOPIC % key,
+                                         constants.REPORTER_CONFIG_PAYLOAD % {"s": key})
+
         except Exception as e:
             logger.error("failed to register auto discover: %s" % e)
 
@@ -77,6 +81,10 @@ def loop(reporter, mqtt_client):
 
         reporter.send_report()
         wait_loop.wait(15)
+
+
+def get_metrics_defaults():
+    return [constants.REPORTER_STATUS]
 
 
 def handle_signal(signum=None, frame=None):

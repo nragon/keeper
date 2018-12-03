@@ -57,6 +57,8 @@ class Heartbeater(object):
         if self.last_message:
             logger.info("ha is reachable")
         else:
+            self.last_message = self.now()
+            self.last_known_message = self.last_message
             logger.warning("ha service still not reachable")
 
     def monitor(self):
@@ -76,11 +78,13 @@ class Heartbeater(object):
                     "restarting ha service (%s of 3) with command %s" % (self.attempts, " ".join(self.command)))
                 if common.exec_command(self.command):
                     self.ha_restarts = self.inc(constants.HEARTBEATER_HA_RESTARTS, self.ha_restarts)
+                    self.put(constants.HEARTBEATER_LAST_HA_RESTARTS, strftime(constants.TIME_FORMAT))
                     self.wait_ha_connection()
             else:
                 logger.warning("heartbeat still failing after 3 restarts")
                 logger.warning("rebooting")
                 self.system_restarts = self.inc(constants.HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
+                self.put(constants.HEARTBEATER_LAST_SYSTEM_RESTART, strftime(constants.TIME_FORMAT))
                 common.exec_command(["sudo", "reboot", "-f"])
 
             self.last_known_message = self.last_message
@@ -131,7 +135,8 @@ def loop(mqtt_client, heartbeater):
 
 def get_metrics_defaults():
     return [constants.HEARTBEATER_STATUS, constants.HEARTBEATER_MISSED_HEARTBEAT, constants.HEARTBEATER_HA_RESTARTS,
-            constants.HEARTBEATER_SYSTEM_RESTARTS, constants.HEARTBEATER_LAST_HEARTBEAT]
+            constants.HEARTBEATER_SYSTEM_RESTARTS, constants.HEARTBEATER_LAST_HEARTBEAT,
+            constants.HEARTBEATER_LAST_HA_RESTARTS, constants.HEARTBEATER_LAST_SYSTEM_RESTART]
 
 
 def handle_signal(signum=None, frame=None):

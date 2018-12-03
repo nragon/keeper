@@ -1,7 +1,7 @@
 from json import dumps
 from os import getpid
 from signal import signal, SIGTERM, SIGINT
-from time import sleep
+from time import sleep, strftime
 
 from core import common, logger, constants
 from core.mqtt import MqttClient
@@ -31,6 +31,7 @@ class Connector(object):
             logger.warning("restarting mqtt service")
             if common.exec_command(self.command):
                 self.mqtt_restarts = self.inc(constants.CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
+                self.put(constants.CONNECTOR_LAST_MQTT_RESTART, strftime(constants.TIME_FORMAT))
                 self.mqtt_client.wait_connection()
                 self.attempts = 0
         else:
@@ -84,7 +85,7 @@ def loop(mqtt_client, connector):
 
 def get_metrics_defaults():
     return [constants.CONNECTOR_STATUS, constants.CONNECTOR_MQTT_RESTARTS, constants.CONNECTOR_FAILED_CONNECTIONS,
-            constants.CONNECTOR_CONNECTION_STATUS]
+            constants.CONNECTOR_CONNECTION_STATUS, constants.CONNECTOR_LAST_MQTT_RESTART]
 
 
 def handle_signal(signum=None, frame=None):
