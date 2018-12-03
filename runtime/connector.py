@@ -13,14 +13,16 @@ running = False
 class Connector(object):
     def __init__(self, command, storage, mqtt_client):
         self.attempts = 0
-        self.mqtt_restarts = storage.get_int(constants.CONNECTOR_MQTT_RESTARTS)
         self.command = command
         mqtt_client.on_not_connect = self.on_not_connect
         self.mqtt_client = mqtt_client
-        self.failed_connections = storage.get_int(constants.CONNECTOR_FAILED_CONNECTIONS)
         self.last_status = False
         self.put = storage.put
         self.put(constants.CONNECTOR_CONNECTION_STATUS, constants.CONNECTOR_CONNECTION_NOK)
+        self.mqtt_restarts = storage.get_int(constants.CONNECTOR_MQTT_RESTARTS)
+        self.put(constants.CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
+        self.failed_connections = storage.get_int(constants.CONNECTOR_FAILED_CONNECTIONS)
+        self.put(constants.CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
         self.inc = storage.inc
 
     def on_not_connect(self):

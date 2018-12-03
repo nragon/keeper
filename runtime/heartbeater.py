@@ -14,9 +14,6 @@ class Heartbeater(object):
     def __init__(self, interval, delay, topic, command, storage, mqtt_client):
         self.attempts = 0
         self.misses = 0
-        self.missed_heartbeats = storage.get_int(constants.HEARTBEATER_MISSED_HEARTBEAT)
-        self.ha_restarts = storage.get_int(constants.HEARTBEATER_HA_RESTARTS)
-        self.system_restarts = storage.get_int(constants.HEARTBEATER_SYSTEM_RESTARTS)
         self.command = command
         mqtt_client.on_message = self.recv
         mqtt_client.on_connect = self.subscribe
@@ -24,6 +21,12 @@ class Heartbeater(object):
         self.inc = storage.inc
         self.last_status = False
         self.put = storage.put
+        self.missed_heartbeats = storage.get_int(constants.HEARTBEATER_MISSED_HEARTBEAT)
+        self.put(constants.HEARTBEATER_MISSED_HEARTBEAT, self.missed_heartbeats)
+        self.ha_restarts = storage.get_int(constants.HEARTBEATER_HA_RESTARTS)
+        self.put(constants.HEARTBEATER_HA_RESTARTS, self.ha_restarts)
+        self.system_restarts = storage.get_int(constants.HEARTBEATER_SYSTEM_RESTARTS)
+        self.put(constants.HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
         self.now = datetime.now
         self.last_message = None
         self.last_known_message = None
