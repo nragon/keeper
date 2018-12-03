@@ -37,7 +37,7 @@ mqtt.pass:
 mqtt.command: "sudo systemctl restart mosquitto.service"
 EOF
 echo "[INFO] Creating Keeper service"
-cat > "/etc/systemd/system/keeper2.service" <<- EOF
+cat > "/etc/systemd/system/keeper.service" <<- EOF
 [Unit]
 Description=keeper service
 After=network.target
@@ -51,6 +51,6 @@ KillSignal=SIGTERM
 WantedBy=multi-user.target
 EOF
 echo "[INFO] Enabling Keeper service"
-sudo systemctl enable keeper2
+sudo systemctl enable keeper
 echo "[INFO] Installation completed. Please configure your Keeper in keeper-config.yaml inside config folder"
 echo "[INFO] Execute \"sudo systemctl restart keeper\" to (re)start Keeper service"
