@@ -29,12 +29,13 @@ heartbeat.interval: 30
 heartbeat.delay: 10
 heartbeat.restart.delay: 180
 heartbeat.topic: "homeassistant/binary_sensor/keeper/state"
-restart.command: "sudo systemctl restart home-assistant@homeassistant"
+ha.restart.command: "sudo systemctl restart home-assistant@homeassistant"
+system.restart.command: "sudo reboot -f"
 mqtt.broker:
 mqtt.port:
 mqtt.user:
 mqtt.pass:
-mqtt.command: "sudo systemctl restart mosquitto.service"
+mqtt.restart.command: "sudo systemctl restart mosquitto.service"
 EOF
 echo "[INFO] Creating Keeper service"
 cat > "/etc/systemd/system/keeper.service" <<- EOF

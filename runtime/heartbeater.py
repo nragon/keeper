@@ -11,10 +11,11 @@ running = False
 
 
 class Heartbeater(object):
-    def __init__(self, interval, delay, topic, command, storage, mqtt_client):
+    def __init__(self, interval, delay, topic, ha_command, sys_command, storage, mqtt_client):
         self.attempts = 0
         self.misses = 0
-        self.command = command
+        self.ha_command = ha_command
+        self.sys_command = sys_command
         mqtt_client.on_message = self.recv
         mqtt_client.on_connect = self.subscribe
         self.mqtt_client = mqtt_client
@@ -75,8 +76,8 @@ class Heartbeater(object):
                 self.misses = 0
                 logger.warning("max of misses reached")
                 logger.warning(
-                    "restarting ha service (%s of 3) with command %s" % (self.attempts, " ".join(self.command)))
-                if common.exec_command(self.command):
+                    "restarting ha service (%s of 3) with command %s" % (self.attempts, " ".join(self.ha_command)))
+                if common.exec_command(self.ha_command):
                     self.ha_restarts = self.inc(constants.HEARTBEATER_HA_RESTARTS, self.ha_restarts)
                     self.put(constants.HEARTBEATER_LAST_HA_RESTARTS, strftime(constants.TIME_FORMAT))
                     self.wait_ha_connection()
@@ -85,7 +86,7 @@ class Heartbeater(object):
                 logger.warning("rebooting")
                 self.system_restarts = self.inc(constants.HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
                 self.put(constants.HEARTBEATER_LAST_SYSTEM_RESTART, strftime(constants.TIME_FORMAT))
-                common.exec_command(["sudo", "reboot", "-f"])
+                common.exec_command(self.sys_command)
 
             self.last_known_message = self.last_message
 
@@ -101,7 +102,8 @@ def start():
     mqtt_client = MqttClient("keeperheartbeater", config)
     with Storage() as storage:
         heartbeater = Heartbeater(config["heartbeat.interval"], config["heartbeat.delay"], config["heartbeat.topic"],
-                                  config["restart.command"].split(" "), storage, mqtt_client)
+                                  config["ha.restart.command"].split(" "), config["system.restart.command"].split(" "),
+                                  storage, mqtt_client)
         del config
         storage.put(constants.HEARTBEATER_STATUS, constants.STATUS_RUNNING)
         try:

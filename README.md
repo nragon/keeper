@@ -36,12 +36,13 @@ heartbeat.interval | Interval between heartbeat message. This should match numbe
 heartbeat.delay | Number of seconds we should wait before considering a miss heartbeat message
 heartbeat.restart.delay | Seconds to wait between home assistant restarts
 heartbeat.topic | Heartbeat topic
-restart.command | Command to restart home assistant service
+ha.restart.command | Command to restart home assistant service
+system.restart.command | Command to restart system
 mqtt.broker | MQTT broker ip
 mqtt.port | MQTT broker port
 mqtt.user | MQTT user used
 mqtt.pass | MQTT user password
-mqtt.command | Command to restart MQTT service
+mqtt.restart.command | Command to restart MQTT service
 
 # Home Assistant
 In home assistant side we should configure an automation capable o sending heartbeat messages to [Keeper](https://github.com/nragon/keeper).

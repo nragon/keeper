@@ -55,7 +55,7 @@ def start():
     config = common.load_config()
     mqtt_client = MqttClient("keeperconnector", config)
     with Storage() as storage:
-        connector = Connector(config["mqtt.command"].split(" "), storage, mqtt_client)
+        connector = Connector(config["mqtt.restart.command"].split(" "), storage, mqtt_client)
         del config
         storage.put(constants.CONNECTOR_STATUS, constants.STATUS_RUNNING)
         try:
