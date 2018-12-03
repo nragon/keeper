@@ -1,6 +1,6 @@
 # Welcome to Keeper
 [Keeper](https://github.com/nragon/keeper) is an open source service manager. Currently, monitors home assistant service and mqtt services.
-MQTT service is monitored by checking connections to the service and home assistant is monitored using an heartbeating mechanism. Through MQTT we exchange heartbeat messages is home assistant in order to determine if its running.
+MQTT service is monitored by checking connections to the service and home assistant is monitored using an heartbeating mechanism. Through MQTT we exchange heartbeat messages with home assistant in order to determine if its running.
 Every 3 missed messages between [Keeper](https://github.com/nragon/keeper) and home assistant, [Keeper](https://github.com/nragon/keeper) will attempt to restart home assistant. Then, if after 3 restarts home assistant still not responding, the system is rebooted.
 In MQTT case, it's only performed a service restart every 3 missed connections
 
@@ -11,26 +11,22 @@ In MQTT case, it's only performed a service restart every 3 missed connections
 - [Contributing](#contributing)
 - [Licensing](#licensing)
 # Installation
-Install the requirements
-````
-python3 -m pip install -r requirements.txt
+Download Keeper release (replace <version> with pretended version)
 ```` 
-
-Create a system service to initialize keeper at boot
-Note that the following service depends on home assistant and mosquitto(MQTT) service
+wget -q --show-progress --no-use-server-timestamps https://github.com/nragon/keeper/archive/<version>.tar.gz
 ````
-[Unit]
-Description=keeper service
-After=network.target home-assistant@homeassistant.service mosquitto.service
-
-[Service]
-Type=simple
-ExecStart=<pathtobin>/keeper.sh
-KillSignal=SIGTERM
-
-[Install]
-WantedBy=multi-user.target
+Unpack package and change to unpacked directory
+````` 
+tar xvf <version>.tar.gz
+cd keeper-<versions>
+`````
+Execute installer script
 ````
+chmod 755 installer.sh
+sudo installer.sh
+````
+Follow instructions
+
 # Configuration
 You can find a set of properties in a yaml file inside [config](config) directory that can be tuned and configured according with you own settings
 
