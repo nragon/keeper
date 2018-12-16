@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+    Entry point
+    :copyright: © 2018 by Nuno Gonçalves
+    :license: MIT, see LICENSE for more details.
+"""
+
 from sys import exit
 from signal import signal, SIGTERM
 
