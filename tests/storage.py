@@ -4,7 +4,7 @@ from shutil import rmtree
 from unittest import TestCase
 
 environ["KEEPER_HOME"] = join(getcwd(), "storage")
-from core.storage import Storage
+from kio import Storage
 
 
 class TestStorage(TestCase):
@@ -70,9 +70,3 @@ class TestStorage(TestCase):
     def test_get_not_exists(self):
         with Storage() as storage:
             self.assertEqual(storage.get("c"), None)
-
-    def test_get_all(self):
-        with Storage() as storage:
-            storage.put("a", "a")
-            storage.put("b", "b")
-            self.assertEqual(storage.get_all(), [("a", "a"), ("b", "b")])

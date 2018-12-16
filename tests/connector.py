@@ -4,11 +4,10 @@ from shutil import rmtree, copy
 from unittest import TestCase
 
 environ["KEEPER_HOME"] = join(getcwd(), "connector")
-from core.storage import Storage
-from core.mqtt import MqttClient
+from kio import Storage, MqttClient
 from runtime.connector import Connector
 
-from core import common, constants
+from core import common, constants, CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK
 
 
 class TestConnector(TestCase):
@@ -24,29 +23,27 @@ class TestConnector(TestCase):
     def test_not_connected(self):
         config = common.load_config()
         config["mqtt.broker"] = "1.1.1.1"
-        mqtt_client = MqttClient("keeperconnectortest", config)
         with Storage() as storage:
-            connector = Connector(config["mqtt.command"].split(" "), storage, mqtt_client)
-            connector.connect(wait=False)
-            self.assertEqual(mqtt_client.connection_status(), 0)
-            self.assertEqual(storage.get(constants.CONNECTOR_CONNECTION_STATUS),
-                             constants.CONNECTOR_CONNECTION_NOK)
+            try:
+                with Connector(config, storage) as connector, MqttClient("keeperconnectortest", config, manager=connector):
+                    pass
+            except Exception as e:
+                pass
+
+            self.assertEqual(storage.get(CONNECTOR_CONNECTION_STATUS), CONNECTOR_CONNECTION_NOK)
 
     def test_connected(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keeperconnectortest", config)
-        with Storage() as storage:
-            connector = Connector(config["mqtt.command"].split(" "), storage, mqtt_client)
-            connector.connect()
+        with Storage() as storage, Connector(config, storage) as connector, MqttClient("keeperconnectortest", config,
+                                                                                       manager=connector) as mqtt_client:
             self.assertEqual(mqtt_client.connection_status(), 2)
             self.assertEqual(storage.get(constants.CONNECTOR_CONNECTION_STATUS),
                              constants.CONNECTOR_CONNECTION_OK)
 
     def test_on_not_connected(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keeperconnectortest", config)
-        with Storage() as storage:
-            connector = Connector(config["mqtt.command"].split(" "), storage, mqtt_client)
+        with Storage() as storage, Connector(config, storage) as connector, MqttClient("keeperconnectortest", config,
+                                                                                       manager=connector) as mqtt_client:
             connector.on_not_connect()
             self.assertEqual(connector.attempts, 1)
             self.assertEqual(storage.get_int(constants.CONNECTOR_FAILED_CONNECTIONS), 1)

@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+    Constants
+    :copyright: © 2018 by Nuno Gonçalves
+    :license: MIT, see LICENSE for more details.
+"""
+
 from os import environ
 
 KEEPER_HOME = environ["KEEPER_HOME"]
@@ -10,20 +17,41 @@ ERROR = "ERROR"
 CONNECTOR_CONNECTION_OK = "Stable"
 CONNECTOR_CONNECTION_NOK = "Not Stable"
 CONNECTOR_STATUS = "connectorStatus"
+CONNECTOR_STATUS_ICON = "mdi:access-point"
+CONNECTOR_STATUS_NAME = "Connector"
 CONNECTOR_CONNECTION_STATUS = "mqttConnectionStatus"
+CONNECTOR_CONNECTION_STATUS_ICON = "mdi:network"
+CONNECTOR_CONNECTION_STATUS_NAME = "MQTT Connection Status"
 CONNECTOR_FAILED_CONNECTIONS = "mqttFailedConnections"
+CONNECTOR_FAILED_CONNECTIONS_ICON = "mdi:sync-alert"
+CONNECTOR_FAILED_CONNECTIONS_NAME = "Failed MQTT Connections"
 CONNECTOR_MQTT_RESTARTS = "mqttRestarts"
+CONNECTOR_MQTT_RESTARTS_ICON = "mdi:restart"
+CONNECTOR_MQTT_RESTARTS_NAME = "MQTT Restarts"
 CONNECTOR_LAST_MQTT_RESTART = "lastMqttRestart"
+CONNECTOR_LAST_MQTT_RESTART_ICON = "mdi:calendar-clock"
+CONNECTOR_LAST_MQTT_RESTART_NAME = "Last MQTT Restart"
 HEARTBEATER_STATUS = "heartbeaterStatus"
+HEARTBEATER_STATUS_ICON = "mdi:heart-pulse"
+HEARTBEATER_STATUS_NAME = "Heartbeater"
 HEARTBEATER_MISSED_HEARTBEAT = "missedHeartbeat"
+HEARTBEATER_MISSED_HEARTBEAT_ICON = "mdi:pipe-leak"
+HEARTBEATER_MISSED_HEARTBEAT_NAME = "Missed Heartbeats"
 HEARTBEATER_HA_RESTARTS = "HARestarts"
+HEARTBEATER_HA_RESTARTS_ICON = "mdi:restart"
+HEARTBEATER_HA_RESTARTS_NAME = "HA Restarts"
 HEARTBEATER_LAST_HA_RESTARTS = "lastHARestart"
+HEARTBEATER_LAST_HA_RESTARTS_ICON = "mdi:calendar-clock"
+HEARTBEATER_LAST_HA_RESTARTS_NAME = "Last HA Restart"
 HEARTBEATER_SYSTEM_RESTARTS = "systemRestarts"
+HEARTBEATER_SYSTEM_RESTARTS_ICON = "mdi:server"
+HEARTBEATER_SYSTEM_RESTARTS_NAME = "System Restarts"
 HEARTBEATER_LAST_SYSTEM_RESTART = "lastSystemRestart"
+HEARTBEATER_LAST_SYSTEM_RESTART_ICON = "mdi:calendar-clock"
+HEARTBEATER_LAST_SYSTEM_RESTART_NAME = "Last System Restart"
 HEARTBEATER_LAST_HEARTBEAT = "lastHeartbeat"
-REPORTER_CONFIG_TOPIC = "homeassistant/sensor/k-%s/config"
-REPORTER_CONFIG_PAYLOAD = "{\"name\": \"k-%(s)s\", \"state_topic\": " \
-                          "\"homeassistant/sensor/keeper/state\", \"value_template\": \"{{ value_json.%(s)s " \
-                          "}}\"} "
-REPORTER_TOPIC = "homeassistant/sensor/keeper/state"
-REPORTER_STATUS = "reporterStatus"
+HEARTBEATER_LAST_HEARTBEAT_ICON = "mdi:calendar-clock"
+HEARTBEATER_LAST_HEARTBEAT_NAME = "Last Heartbeat"
+STATE_TOPIC = "homeassistant/sensor/kp%s/state"
+CONFIG_TOPIC = "homeassistant/sensor/kp%s/config"
+CONFIG_PAYLOAD = "{\"name\": \"%s\", \"state_topic\": \"" + STATE_TOPIC + "\", \"icon\": \"%s\"}"

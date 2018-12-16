@@ -7,9 +7,7 @@ from unittest import TestCase
 environ["KEEPER_HOME"] = join(getcwd(), "heartbeater")
 from runtime.heartbeater import Heartbeater
 
-from core.storage import Storage
-from core.mqtt import MqttClient
-from runtime.connector import Connector
+from kio import Storage, MqttClient
 
 from core import common, constants
 
@@ -27,42 +25,35 @@ class TestHeartbeater(TestCase):
     def test_not_connected(self):
         config = common.load_config()
         config["mqtt.broker"] = "1.1.1.1"
-        mqtt_client = MqttClient("keeperheartbeatertest", config)
         with Storage() as storage:
-            heartbeater = Heartbeater(config["heartbeat.interval"], config["heartbeat.delay"],
-                                      config["heartbeat.topic"],
-                                      config["mqtt.command"].split(" "), storage, mqtt_client)
-            heartbeater.connect(wait=False)
-            self.assertEqual(mqtt_client.connection_status(), 0)
+            try:
+                with Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest", config,
+                                                                             manager=heartbeater):
+                    pass
+            except Exception as e:
+                pass
 
     def test_connected(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keeperheartbeatertest", config)
-        with Storage() as storage:
-            connector = Connector(config["mqtt.command"].split(" "), storage, mqtt_client)
-            connector.connect()
+        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
+                                                                                           config,
+                                                                                           manager=heartbeater) as mqtt_client:
             self.assertEqual(mqtt_client.connection_status(), 2)
 
     def test_monitor_in_time_no_delay(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keeperheartbeatertest", config)
-        with Storage() as storage:
-            heartbeater = Heartbeater(config["heartbeat.interval"], config["heartbeat.delay"],
-                                      config["heartbeat.topic"],
-                                      config["mqtt.command"].split(" "), storage, mqtt_client)
-            heartbeater.connect()
+        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
+                                                                                           config,
+                                                                                           manager=heartbeater):
             heartbeater.last_message = datetime.now() - timedelta(seconds=config["heartbeat.interval"])
             heartbeater.monitor()
             self.assertEqual(storage.get_int(constants.HEARTBEATER_MISSED_HEARTBEAT), 0)
 
     def test_monitor_in_time_delay(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keeperheartbeatertest", config)
-        with Storage() as storage:
-            heartbeater = Heartbeater(config["heartbeat.interval"], config["heartbeat.delay"],
-                                      config["heartbeat.topic"],
-                                      config["mqtt.command"].split(" "), storage, mqtt_client)
-            heartbeater.connect()
+        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
+                                                                                           config,
+                                                                                           manager=heartbeater):
             heartbeater.last_message = datetime.now() - timedelta(
                 seconds=config["heartbeat.interval"] + config["heartbeat.delay"])
             heartbeater.monitor()
@@ -70,12 +61,9 @@ class TestHeartbeater(TestCase):
 
     def test_monitor_not_in_time(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keeperheartbeatertest", config)
-        with Storage() as storage:
-            heartbeater = Heartbeater(config["heartbeat.interval"], config["heartbeat.delay"],
-                                      config["heartbeat.topic"],
-                                      config["mqtt.command"].split(" "), storage, mqtt_client)
-            heartbeater.connect()
+        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
+                                                                                           config,
+                                                                                           manager=heartbeater):
             heartbeater.last_message = datetime.now() - timedelta(
                 seconds=config["heartbeat.interval"] + config["heartbeat.delay"] + 1)
             heartbeater.monitor()
@@ -83,13 +71,10 @@ class TestHeartbeater(TestCase):
 
     def test_monitor_restart_ha(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keeperheartbeatertest", config)
-        with Storage() as storage:
-            heartbeater = Heartbeater(config["heartbeat.interval"], config["heartbeat.delay"],
-                                      config["heartbeat.topic"],
-                                      config["mqtt.command"].split(" "), storage, mqtt_client)
+        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
+                                                                                           config,
+                                                                                           manager=heartbeater):
             diff = config["heartbeat.interval"] + config["heartbeat.delay"] + 1
-            heartbeater.connect()
             heartbeater.last_message = datetime.now() - timedelta(seconds=diff)
             heartbeater.monitor()
             self.assertEqual(heartbeater.misses, 1)

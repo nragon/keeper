@@ -1,9 +1,10 @@
 from os import environ, getcwd, mkdir
 from os.path import join
+
 environ["KEEPER_HOME"] = join(getcwd(), "mqtt")
 from shutil import rmtree, copy
 from unittest import TestCase
-from core.mqtt import MqttClient
+from kio.mqtt import MqttClient
 
 from core import common
 
@@ -20,27 +21,27 @@ class TestMqtt(TestCase):
 
     def test_connected(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keepermqtttest", config)
-        mqtt_client.reconnect()
-        self.assertEqual(mqtt_client.connection_status(), 2)
+        with MqttClient("keepermqtttest", config) as mqtt_client:
+            self.assertEqual(mqtt_client.connection_status(), 2)
 
     def test_not_connected(self):
         config = common.load_config()
         config["mqtt.broker"] = "1.1.1.1"
-        mqtt_client = MqttClient("keepermqtttest", config)
-        mqtt_client.reconnect(wait=False)
-        self.assertEqual(mqtt_client.connection_status(), 0)
+        try:
+            with MqttClient("keepermqtttest", config, False):
+                pass
+        except:
+            pass
 
     def test_wait(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keepermqtttest", config)
-        mqtt_client.wait_connection()
-        self.assertEqual(mqtt_client.connection_status(), 2)
+        with MqttClient("keepermqtttest", config) as mqtt_client:
+            mqtt_client.wait_connection()
+            self.assertEqual(mqtt_client.connection_status(), 2)
 
     def test_is_connected(self):
         config = common.load_config()
-        mqtt_client = MqttClient("keepermqtttest", config)
-        mqtt_client.wait_connection()
-        self.assertEqual(mqtt_client.connection_status(), 2)
-        mqtt_client.disconnect()
+        with MqttClient("keepermqtttest", config) as mqtt_client:
+            self.assertEqual(mqtt_client.connection_status(), 2)
+
         self.assertEqual(mqtt_client.connection_status(), 0)

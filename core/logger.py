@@ -1,28 +1,56 @@
-from multiprocessing import current_process
+# -*- coding: utf-8 -*-
+"""
+    Provides base logging functions
+    :copyright: © 2018 by Nuno Gonçalves
+    :license: MIT, see LICENSE for more details.
+"""
 
+from multiprocessing import current_process
 from time import strftime
 
-from core import constants
-
-PROCESS_NAME = None
+from core.constants import INFO, WARN, ERROR, TIME_FORMAT
 
 
-def init(process_name=None):
-    global PROCESS_NAME
-    PROCESS_NAME = process_name if process_name else current_process().name
+class Logger(object):
+    """
+    logger class that prints to stdout
+    """
 
+    def __init__(self):
+        """
+        partially initializes format
+        """
+        self.format = "%s " + current_process().name + "-keeper[%s]: %s"
 
-def info(message):
-    log(constants.INFO, message)
+    def info(self, message):
+        """
+        prints an info message
+        :param message: message
+        """
 
+        self.log(INFO, message)
 
-def warning(message):
-    log(constants.WARN, message)
+    def warning(self, message):
+        """
+        prints a warning message
+        :param message: message
+        """
 
+        self.log(WARN, message)
 
-def error(message):
-    log(constants.ERROR, message)
+    def error(self, message):
+        """
+        prints an error message
+        :param message: message
+        """
 
+        self.log(ERROR, message)
 
-def log(level, message):
-    print("%s %s-keeper[%s]: %s" % (strftime(constants.TIME_FORMAT), PROCESS_NAME, level, message))
+    def log(self, level, message):
+        """
+        prints a message
+        :param level: log level
+        :param message: message
+        """
+
+        print(self.format % (strftime(TIME_FORMAT), level, message))

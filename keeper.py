@@ -1,10 +1,14 @@
-import sys
+from sys import exit
 from signal import signal, SIGTERM
 
-from core import manager, common
+from runtime import manager
 
 
 def main():
+    """
+    main
+    """
+
     signal(SIGTERM, manager.handle_signal)
     try:
         manager.start()
@@ -17,4 +21,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    sys.exit(0)
+    exit(0)
