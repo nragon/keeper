@@ -84,6 +84,7 @@ class Manager(object):
         :param process: process implementation
         :param name: process name
         """
+
         try:
             mod = import_module(process)
             setproctitle("keeper:" + name)
@@ -184,6 +185,11 @@ def start():
 
 
 def loop(manager):
+    """
+    continuously check launched processes
+    :param manager: manager
+    """
+
     global running
     running = True
     while running:
@@ -197,6 +203,7 @@ def is_running(process):
     :param process: process to be checked
     :return: True if running, False not running
     """
+
     try:
         if process.exitcode is not None:
             return False
