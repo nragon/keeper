@@ -7,7 +7,7 @@
 from datetime import datetime, timedelta
 from time import sleep
 from paho.mqtt.client import Client
-from core import Logger
+from core import Logger, STATE_TOPIC, CONFIG_TOPIC, CONFIG_PAYLOAD
 
 
 class MqttClient(object):
@@ -190,15 +190,28 @@ class MqttClient(object):
 
         return status
 
-    def publish(self, topic, payload):
+    def register(self, metric, name, icon):
         """
-        publish a message to mqtt
-        :param topic: topic to publish message
-        :param payload: message content
+        register a new metric using mqtt discovery
+        :param metric: metric identification
+        :param name: metric name
+        :param icon: metric icon
         """
 
         try:
-            self.client.publish(topic, payload, 1, True)
+            self.client.publish(CONFIG_TOPIC % metric, CONFIG_PAYLOAD % (name, metric, icon), 1, True)
+        except:
+            pass
+
+    def publish_state(self, metric, state):
+        """
+        publish state to mqtt
+        :param metric: metric identification
+        :param state: state value
+        """
+
+        try:
+            self.client.publish(STATE_TOPIC % metric, state, 1, True)
         except:
             pass
 

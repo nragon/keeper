@@ -11,7 +11,10 @@ from signal import signal, SIGTERM, SIGINT
 from time import sleep, strftime
 from core import Logger, load_config, exec_command, CONNECTOR_LAST_MQTT_RESTART, TIME_FORMAT, CONNECTOR_STATUS, \
     STATUS_RUNNING, STATUS_NOT_RUNNING, CONNECTOR_CONNECTION_OK, CONNECTOR_CONNECTION_STATUS, \
-    CONNECTOR_CONNECTION_NOK, CONNECTOR_MQTT_RESTARTS, CONNECTOR_FAILED_CONNECTIONS
+    CONNECTOR_CONNECTION_NOK, CONNECTOR_MQTT_RESTARTS, CONNECTOR_FAILED_CONNECTIONS, CONNECTOR_MQTT_RESTARTS_NAME, \
+    CONNECTOR_MQTT_RESTARTS_ICON, CONNECTOR_CONNECTION_STATUS_NAME, CONNECTOR_CONNECTION_STATUS_ICON, \
+    CONNECTOR_FAILED_CONNECTIONS_NAME, CONNECTOR_FAILED_CONNECTIONS_ICON, CONNECTOR_STATUS_NAME, \
+    CONNECTOR_STATUS_ICON, CONNECTOR_LAST_MQTT_RESTART_NAME, CONNECTOR_LAST_MQTT_RESTART_ICON
 from kio import MqttClient, Storage
 
 running = False
@@ -32,55 +35,73 @@ class Connector(object):
         self.attempts = 0
         self.command = config["mqtt.restart.command"].split(" ")
         self.mqtt_client = None
-        self.put = storage.put
-        self.put(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
-        self.mqtt_restarts = storage.get_int(CONNECTOR_MQTT_RESTARTS)
-        self.put(CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
-        self.failed_connections = storage.get_int(CONNECTOR_FAILED_CONNECTIONS)
-        self.put(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
+        put = storage.put
+        get_int = storage.get_int
+        self.mqtt_restarts = put(CONNECTOR_MQTT_RESTARTS, get_int(CONNECTOR_MQTT_RESTARTS))
+        self.failed_connections = put(CONNECTOR_FAILED_CONNECTIONS, get_int(CONNECTOR_FAILED_CONNECTIONS))
+        self.states_queue = []
+        self.put = put
+        self.get = storage.get
         self.inc = storage.inc
         self.logger = Logger()
 
     def __enter__(self):
         """
-        updates manager status when entering context
+        informs when entering context
         :return: Connector object
         """
 
         self.logger.info("starting connector manager[pid=%s]" % getpid())
-        self.put(CONNECTOR_STATUS, STATUS_RUNNING)
 
         return self
 
     # noinspection PyShadowingBuiltins
     def __exit__(self, type, value, traceback):
         """
-        updates manager status when exiting context
+        publishes manager status when exiting context
         :param type:
         :param value:
         :param traceback:
         """
 
         self.logger.info("stopping connector[pid=%s]" % getpid())
-        self.put(CONNECTOR_STATUS, STATUS_NOT_RUNNING)
+        self.mqtt_client.publish(CONNECTOR_STATUS, STATUS_NOT_RUNNING)
 
     def set_mqtt(self, mqtt_client):
         """
         sets mqtt client
         :param mqtt_client: mqtt client
         """
+
         self.mqtt_client = mqtt_client
 
     # noinspection PyUnusedLocal
     def on_connect(self, client, userdata, flags, rc):
         """
         updates connection status on connect
+        registers sensors and sends metrics
         :param client: mqtt client
         :param userdata: userdata dict
         :param flags: flags
         :param rc: rc code
         """
-        self.put(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK)
+
+        mqtt_client = self.mqtt_client
+        # register all metrics
+        mqtt_client.register(CONNECTOR_STATUS, CONNECTOR_STATUS_NAME, CONNECTOR_STATUS_ICON)
+        mqtt_client.register(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_STATUS_NAME,
+                             CONNECTOR_CONNECTION_STATUS_ICON)
+        mqtt_client.register(CONNECTOR_MQTT_RESTARTS, CONNECTOR_MQTT_RESTARTS_NAME, CONNECTOR_MQTT_RESTARTS_ICON)
+        mqtt_client.register(CONNECTOR_FAILED_CONNECTIONS, CONNECTOR_FAILED_CONNECTIONS_NAME,
+                             CONNECTOR_FAILED_CONNECTIONS_ICON)
+        mqtt_client.register(CONNECTOR_LAST_MQTT_RESTART, CONNECTOR_LAST_MQTT_RESTART_NAME,
+                             CONNECTOR_LAST_MQTT_RESTART_ICON)
+        # sends initial values
+        mqtt_client.publish(CONNECTOR_STATUS, STATUS_RUNNING)
+        mqtt_client.publish(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK)
+        mqtt_client.publish(CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
+        mqtt_client.publish(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
+        mqtt_client.publish(CONNECTOR_LAST_MQTT_RESTART, self.get(CONNECTOR_LAST_MQTT_RESTART))
 
     # noinspection PyUnusedLocal
     def on_disconnect(self, client, userdata, rc):
@@ -90,7 +111,8 @@ class Connector(object):
         :param userdata: userdata dict
         :param rc: rc code
         """
-        self.put(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
+
+        self.mqtt_client.publish(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
 
     def on_not_connect(self):
         """
@@ -103,8 +125,10 @@ class Connector(object):
             self.logger.warning("max of 3 connection attempts was reached")
             self.logger.warning("restarting mqtt service")
             if exec_command(self.command):
+                append = self.states_queue.append
                 self.mqtt_restarts = self.inc(CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
-                self.put(CONNECTOR_LAST_MQTT_RESTART, strftime(TIME_FORMAT))
+                append((CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts))
+                append((CONNECTOR_LAST_MQTT_RESTART, self.put(CONNECTOR_LAST_MQTT_RESTART, strftime(TIME_FORMAT))))
                 self.mqtt_client.wait_connection(60)
                 self.attempts = 0
         else:
@@ -112,6 +136,19 @@ class Connector(object):
             self.failed_connections = self.inc(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
             self.logger.warning("broker is not responding (%s of 3)" % self.attempts)
             sleep(5)
+
+    def loop(self):
+        """
+        sleeps 1 second until next validation
+        sends metrics if any to send
+        """
+
+        publish = self.mqtt_client.publish
+        for states in self.states_queue:
+            publish(states[0], states[1])
+
+        self.states_queue = []
+        sleep(1)
 
 
 def start():
@@ -121,31 +158,33 @@ def start():
     """
 
     config = load_config()
-    with Storage() as storage, Connector(config, storage) as connector, MqttClient("keeperconnector", config,
-                                                                                   manager=connector) as mqtt_client:
+    with Storage() as storage, Connector(config, storage) as connector, \
+            MqttClient("keeperconnector", config, manager=connector) as mqtt_client:
         del config
         try:
-            loop(mqtt_client)
+            loop(connector, mqtt_client)
         except Exception as e:
             if running:
                 raise e
 
 
-def loop(mqtt_client):
+def loop(connector, mqtt_client):
     """
     continuously check mqtt connections
+    :param connector: connector manager
     :param mqtt_client: mqtt client
     """
 
     global running
     running = True
     while running:
-        # if we have been disconneced or failed o connect somehow
+        # if we have been disconnected or failed o connect somehow
         # lets try to reconnect mqtt
         if mqtt_client.connection_status() != 2 and running:
             mqtt_client.reconnect()
+            continue
 
-        sleep(1)
+        connector.loop()
 
 
 # noinspection PyUnusedLocal
