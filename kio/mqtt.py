@@ -49,9 +49,7 @@ class MqttClient(object):
         :return: MqttClient object
         """
 
-        self.client.reconnect()
-        if self.wait:
-            self.wait_connection()
+        self.reconnect()
 
         return self
 
@@ -117,7 +115,7 @@ class MqttClient(object):
 
         # call custom on message methods if any defined
         manager = self.manager
-        if manager and manager.on_connect:
+        if manager and manager.on_message:
             manager.on_message(client, userdata, message)
 
     def connection_status(self):
@@ -153,7 +151,10 @@ class MqttClient(object):
             # status 1 should only wait for connection
             # instead of reconnecting
             if status == 0:
-                reconnect()
+                try:
+                    reconnect()
+                except:
+                    pass
 
             sleep(1)
             status = connection_status()
@@ -174,7 +175,10 @@ class MqttClient(object):
         while status != 2:
             try:
                 if status == 0:
-                    reconnect()
+                    try:
+                        reconnect()
+                    except:
+                        pass
 
                 status = connection_status()
                 manager = self.manager

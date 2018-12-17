@@ -17,7 +17,8 @@ from core import exec_command, load_config, constants, Logger, HEARTBEATER_STATU
     HEARTBEATER_HA_RESTARTS_ICON, HEARTBEATER_SYSTEM_RESTARTS, HEARTBEATER_SYSTEM_RESTARTS_NAME, \
     HEARTBEATER_SYSTEM_RESTARTS_ICON, HEARTBEATER_LAST_HA_RESTART, TIME_FORMAT, HEARTBEATER_LAST_SYSTEM_RESTART, \
     HEARTBEATER_LAST_HA_RESTART_NAME, HEARTBEATER_LAST_HA_RESTART_ICON, HEARTBEATER_LAST_SYSTEM_RESTART_NAME, \
-    HEARTBEATER_LAST_SYSTEM_RESTART_ICON
+    HEARTBEATER_LAST_SYSTEM_RESTART_ICON, HEARTBEATER_LAST_HEARTBEAT, HEARTBEATER_LAST_HEARTBEAT_NAME, \
+    HEARTBEATER_LAST_HEARTBEAT_ICON
 from kio import MqttClient, Storage
 
 running = False
@@ -79,7 +80,7 @@ class Heartbeater(object):
         """
 
         self.logger.info("stopping heartbeater[pid=%s]" % getpid())
-        self.mqtt_client.publish(HEARTBEATER_STATUS, STATUS_NOT_RUNNING)
+        self.mqtt_client.publish_state(HEARTBEATER_STATUS, STATUS_NOT_RUNNING)
 
     def set_mqtt(self, mqtt_client):
         """
@@ -102,25 +103,29 @@ class Heartbeater(object):
 
         self.logger.info("subscribing topic %s" % self.topic)
         client.subscribe(self.topic)
-        mqtt_client = self.mqtt_client
+        publish_state = self.mqtt_client.publish_state
+        register = self.mqtt_client.register
         # register all metrics
-        mqtt_client.register(HEARTBEATER_STATUS, HEARTBEATER_STATUS_NAME, HEARTBEATER_STATUS_ICON)
-        mqtt_client.register(HEARTBEATER_MISSED_HEARTBEAT, HEARTBEATER_MISSED_HEARTBEAT_NAME,
-                             HEARTBEATER_MISSED_HEARTBEAT_ICON)
-        mqtt_client.register(HEARTBEATER_HA_RESTARTS, HEARTBEATER_HA_RESTARTS_NAME, HEARTBEATER_HA_RESTARTS_ICON)
-        mqtt_client.register(HEARTBEATER_SYSTEM_RESTARTS, HEARTBEATER_SYSTEM_RESTARTS_NAME,
-                             HEARTBEATER_SYSTEM_RESTARTS_ICON)
-        mqtt_client.register(HEARTBEATER_LAST_HA_RESTART, HEARTBEATER_LAST_HA_RESTART_NAME,
-                             HEARTBEATER_LAST_HA_RESTART_ICON)
-        mqtt_client.register(HEARTBEATER_LAST_SYSTEM_RESTART, HEARTBEATER_LAST_SYSTEM_RESTART_NAME,
-                             HEARTBEATER_LAST_SYSTEM_RESTART_ICON)
+        register(HEARTBEATER_STATUS, HEARTBEATER_STATUS_NAME, HEARTBEATER_STATUS_ICON)
+        register(HEARTBEATER_MISSED_HEARTBEAT, HEARTBEATER_MISSED_HEARTBEAT_NAME,
+                 HEARTBEATER_MISSED_HEARTBEAT_ICON)
+        register(HEARTBEATER_HA_RESTARTS, HEARTBEATER_HA_RESTARTS_NAME, HEARTBEATER_HA_RESTARTS_ICON)
+        register(HEARTBEATER_SYSTEM_RESTARTS, HEARTBEATER_SYSTEM_RESTARTS_NAME,
+                 HEARTBEATER_SYSTEM_RESTARTS_ICON)
+        register(HEARTBEATER_LAST_HEARTBEAT, HEARTBEATER_LAST_HEARTBEAT_NAME,
+                 HEARTBEATER_LAST_HEARTBEAT_ICON)
+        register(HEARTBEATER_LAST_HA_RESTART, HEARTBEATER_LAST_HA_RESTART_NAME,
+                 HEARTBEATER_LAST_HA_RESTART_ICON)
+        register(HEARTBEATER_LAST_SYSTEM_RESTART, HEARTBEATER_LAST_SYSTEM_RESTART_NAME,
+                 HEARTBEATER_LAST_SYSTEM_RESTART_ICON)
         # sends initial values
-        mqtt_client.publish(HEARTBEATER_STATUS, STATUS_RUNNING)
-        mqtt_client.publish(HEARTBEATER_MISSED_HEARTBEAT, self.missed_heartbeats)
-        mqtt_client.publish(HEARTBEATER_HA_RESTARTS, self.ha_restarts)
-        mqtt_client.publish(HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
-        mqtt_client.publish(HEARTBEATER_LAST_HA_RESTART, self.get(HEARTBEATER_LAST_HA_RESTART))
-        mqtt_client.publish(HEARTBEATER_LAST_SYSTEM_RESTART, self.get(HEARTBEATER_LAST_SYSTEM_RESTART))
+        publish_state(HEARTBEATER_STATUS, STATUS_RUNNING)
+        publish_state(HEARTBEATER_MISSED_HEARTBEAT, self.missed_heartbeats)
+        publish_state(HEARTBEATER_HA_RESTARTS, self.ha_restarts)
+        publish_state(HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
+        publish_state(HEARTBEATER_LAST_HEARTBEAT, self.get(HEARTBEATER_LAST_HEARTBEAT))
+        publish_state(HEARTBEATER_LAST_HA_RESTART, self.get(HEARTBEATER_LAST_HA_RESTART))
+        publish_state(HEARTBEATER_LAST_SYSTEM_RESTART, self.get(HEARTBEATER_LAST_SYSTEM_RESTART))
 
     # noinspection PyUnusedLocal
     def on_message(self, client, userdata, message):
@@ -132,7 +137,8 @@ class Heartbeater(object):
         """
 
         self.last_message = self.now()
-        self.states_queue.append(self.put(constants.HEARTBEATER_LAST_HEARTBEAT, strftime(constants.TIME_FORMAT)))
+        self.states_queue.append(
+            (HEARTBEATER_LAST_HEARTBEAT, self.put(HEARTBEATER_LAST_HEARTBEAT, strftime(TIME_FORMAT))))
 
     def wait_ha_connection(self):
         """
@@ -142,7 +148,7 @@ class Heartbeater(object):
         self.last_message = None
         self.last_known_message = None
         now = self.now
-        limit = now() + timedelta(seconds=120)
+        limit = now() + timedelta(seconds=300)
         self.logger.info("waiting for ha service")
         while running and not self.last_message and now() < limit:
             self.mqtt_client.loop()
@@ -205,9 +211,9 @@ class Heartbeater(object):
         """
 
         self.mqtt_client.loop()
-        publish = self.mqtt_client.publish
+        publish_state = self.mqtt_client.publish_state
         for states in self.states_queue:
-            publish(states[0], states[1])
+            publish_state(states[0], states[1])
 
         self.states_queue = []
         sleep(1)

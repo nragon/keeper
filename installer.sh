@@ -21,7 +21,7 @@ echo "[INFO] Creating virtual environment for Keeper"
 python3 -m venv "${KEEPER_HOME}"
 source "${KEEPER_HOME}/bin/activate"
 echo "[INFO] Installing required components"
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r "${KEEPER_HOME}/requirements.txt"
 deactivate
 chmod 755 "${KEEPER_HOME}/bin/keeper.sh"
 sudo cat > "${KEEPER_HOME}/config/keeper-config.yaml" <<- EOF

@@ -31,6 +31,6 @@ def exec_command(command):
 
     try:
         with open(devnull, "wb") as dev_null:
-            return call(command, stdout=dev_null, stderr=dev_null, shell=True) == 0
+            return call(command, stdout=dev_null, stderr=dev_null) == 0
     except Exception:
         return False

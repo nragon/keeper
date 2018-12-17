@@ -65,7 +65,7 @@ class Connector(object):
         """
 
         self.logger.info("stopping connector[pid=%s]" % getpid())
-        self.mqtt_client.publish(CONNECTOR_STATUS, STATUS_NOT_RUNNING)
+        self.mqtt_client.publish_state(CONNECTOR_STATUS, STATUS_NOT_RUNNING)
 
     def set_mqtt(self, mqtt_client):
         """
@@ -86,22 +86,23 @@ class Connector(object):
         :param rc: rc code
         """
 
-        mqtt_client = self.mqtt_client
+        publish_state = self.mqtt_client.publish_state
+        register = self.mqtt_client.register
         # register all metrics
-        mqtt_client.register(CONNECTOR_STATUS, CONNECTOR_STATUS_NAME, CONNECTOR_STATUS_ICON)
-        mqtt_client.register(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_STATUS_NAME,
-                             CONNECTOR_CONNECTION_STATUS_ICON)
-        mqtt_client.register(CONNECTOR_MQTT_RESTARTS, CONNECTOR_MQTT_RESTARTS_NAME, CONNECTOR_MQTT_RESTARTS_ICON)
-        mqtt_client.register(CONNECTOR_FAILED_CONNECTIONS, CONNECTOR_FAILED_CONNECTIONS_NAME,
-                             CONNECTOR_FAILED_CONNECTIONS_ICON)
-        mqtt_client.register(CONNECTOR_LAST_MQTT_RESTART, CONNECTOR_LAST_MQTT_RESTART_NAME,
-                             CONNECTOR_LAST_MQTT_RESTART_ICON)
+        register(CONNECTOR_STATUS, CONNECTOR_STATUS_NAME, CONNECTOR_STATUS_ICON)
+        register(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_STATUS_NAME,
+                 CONNECTOR_CONNECTION_STATUS_ICON)
+        register(CONNECTOR_MQTT_RESTARTS, CONNECTOR_MQTT_RESTARTS_NAME, CONNECTOR_MQTT_RESTARTS_ICON)
+        register(CONNECTOR_FAILED_CONNECTIONS, CONNECTOR_FAILED_CONNECTIONS_NAME,
+                 CONNECTOR_FAILED_CONNECTIONS_ICON)
+        register(CONNECTOR_LAST_MQTT_RESTART, CONNECTOR_LAST_MQTT_RESTART_NAME,
+                 CONNECTOR_LAST_MQTT_RESTART_ICON)
         # sends initial values
-        mqtt_client.publish(CONNECTOR_STATUS, STATUS_RUNNING)
-        mqtt_client.publish(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK)
-        mqtt_client.publish(CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
-        mqtt_client.publish(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
-        mqtt_client.publish(CONNECTOR_LAST_MQTT_RESTART, self.get(CONNECTOR_LAST_MQTT_RESTART))
+        publish_state(CONNECTOR_STATUS, STATUS_RUNNING)
+        publish_state(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK)
+        publish_state(CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
+        publish_state(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
+        publish_state(CONNECTOR_LAST_MQTT_RESTART, self.get(CONNECTOR_LAST_MQTT_RESTART))
 
     # noinspection PyUnusedLocal
     def on_disconnect(self, client, userdata, rc):
@@ -112,7 +113,7 @@ class Connector(object):
         :param rc: rc code
         """
 
-        self.mqtt_client.publish(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
+        self.mqtt_client.publish_state(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
 
     def on_not_connect(self):
         """
@@ -143,9 +144,9 @@ class Connector(object):
         sends metrics if any to send
         """
 
-        publish = self.mqtt_client.publish
+        publish_state = self.mqtt_client.publish_state
         for states in self.states_queue:
-            publish(states[0], states[1])
+            publish_state(states[0], states[1])
 
         self.states_queue = []
         sleep(1)
