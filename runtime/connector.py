@@ -35,6 +35,7 @@ class Connector(object):
         self.attempts = 0
         self.command = config["mqtt.restart.command"].split(" ")
         self.mqtt_client = None
+        self.registered = False
         put = storage.put
         get_int = storage.get_int
         self.mqtt_restarts = put(CONNECTOR_MQTT_RESTARTS, get_int(CONNECTOR_MQTT_RESTARTS))
@@ -65,7 +66,10 @@ class Connector(object):
         """
 
         self.logger.info("stopping connector[pid=%s]" % getpid())
-        self.mqtt_client.publish_state(CONNECTOR_STATUS, STATUS_NOT_RUNNING)
+        try:
+            self.mqtt_client.publish_state(CONNECTOR_STATUS, STATUS_NOT_RUNNING)
+        except:
+            pass
 
     def set_mqtt(self, mqtt_client):
         """
@@ -86,23 +90,30 @@ class Connector(object):
         :param rc: rc code
         """
 
-        publish_state = self.mqtt_client.publish_state
-        register = self.mqtt_client.register
-        # register all metrics
-        register(CONNECTOR_STATUS, CONNECTOR_STATUS_NAME, CONNECTOR_STATUS_ICON)
-        register(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_STATUS_NAME,
-                 CONNECTOR_CONNECTION_STATUS_ICON)
-        register(CONNECTOR_MQTT_RESTARTS, CONNECTOR_MQTT_RESTARTS_NAME, CONNECTOR_MQTT_RESTARTS_ICON)
-        register(CONNECTOR_FAILED_CONNECTIONS, CONNECTOR_FAILED_CONNECTIONS_NAME,
-                 CONNECTOR_FAILED_CONNECTIONS_ICON)
-        register(CONNECTOR_LAST_MQTT_RESTART, CONNECTOR_LAST_MQTT_RESTART_NAME,
-                 CONNECTOR_LAST_MQTT_RESTART_ICON)
-        # sends initial values
-        publish_state(CONNECTOR_STATUS, STATUS_RUNNING)
-        publish_state(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK)
-        publish_state(CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
-        publish_state(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
-        publish_state(CONNECTOR_LAST_MQTT_RESTART, self.get(CONNECTOR_LAST_MQTT_RESTART))
+        # first time we are connected we register metrics and
+        # send initial values
+        if not self.registered:
+            try:
+                publish_state = self.mqtt_client.publish_state
+                register = self.mqtt_client.register
+                # register all metrics
+                register(CONNECTOR_STATUS, CONNECTOR_STATUS_NAME, CONNECTOR_STATUS_ICON)
+                register(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_STATUS_NAME,
+                         CONNECTOR_CONNECTION_STATUS_ICON)
+                register(CONNECTOR_MQTT_RESTARTS, CONNECTOR_MQTT_RESTARTS_NAME, CONNECTOR_MQTT_RESTARTS_ICON)
+                register(CONNECTOR_FAILED_CONNECTIONS, CONNECTOR_FAILED_CONNECTIONS_NAME,
+                         CONNECTOR_FAILED_CONNECTIONS_ICON)
+                register(CONNECTOR_LAST_MQTT_RESTART, CONNECTOR_LAST_MQTT_RESTART_NAME,
+                         CONNECTOR_LAST_MQTT_RESTART_ICON)
+                # sends initial values
+                publish_state(CONNECTOR_STATUS, STATUS_RUNNING)
+                publish_state(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK)
+                publish_state(CONNECTOR_MQTT_RESTARTS, self.mqtt_restarts)
+                publish_state(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
+                publish_state(CONNECTOR_LAST_MQTT_RESTART, self.get(CONNECTOR_LAST_MQTT_RESTART))
+                self.registered = True
+            except:
+                pass
 
     # noinspection PyUnusedLocal
     def on_disconnect(self, client, userdata, rc):
@@ -112,8 +123,10 @@ class Connector(object):
         :param userdata: userdata dict
         :param rc: rc code
         """
-
-        self.mqtt_client.publish_state(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
+        try:
+            self.mqtt_client.publish_state(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
+        except:
+            pass
 
     def on_not_connect(self):
         """
@@ -136,7 +149,7 @@ class Connector(object):
             self.attempts += 1
             self.failed_connections = self.inc(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
             self.logger.warning("broker is not responding (%s of 3)" % self.attempts)
-            sleep(5)
+            sleep(10)
 
     def loop(self):
         """
@@ -145,10 +158,14 @@ class Connector(object):
         """
 
         publish_state = self.mqtt_client.publish_state
-        for states in self.states_queue:
-            publish_state(states[0], states[1])
+        try:
+            for states in self.states_queue:
+                publish_state(states[0], states[1])
 
-        self.states_queue = []
+            self.states_queue = []
+        except:
+            pass
+
         sleep(1)
 
 

@@ -202,10 +202,7 @@ class MqttClient(object):
         :param icon: metric icon
         """
 
-        try:
-            self.client.publish(CONFIG_TOPIC % metric, CONFIG_PAYLOAD % (name, metric, icon), 1, True)
-        except:
-            pass
+        self.client.publish(CONFIG_TOPIC % metric, CONFIG_PAYLOAD % (name, metric, icon), 1, True)
 
     def publish_state(self, metric, state):
         """
@@ -214,10 +211,7 @@ class MqttClient(object):
         :param state: state value
         """
 
-        try:
-            self.client.publish(STATE_TOPIC % metric, state, 1, True)
-        except:
-            pass
+        self.client.publish(STATE_TOPIC % metric, state, 1, True)
 
     def loop(self):
         """

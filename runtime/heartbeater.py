@@ -41,6 +41,7 @@ class Heartbeater(object):
         self.ha_command = config["ha.restart.command"].split(" ")
         self.sys_command = config["system.restart.command"].split(" ")
         self.inc = storage.inc
+        self.registered = False
         put = storage.put
         get_int = storage.get_int
         self.missed_heartbeats = put(constants.HEARTBEATER_MISSED_HEARTBEAT,
@@ -80,7 +81,10 @@ class Heartbeater(object):
         """
 
         self.logger.info("stopping heartbeater[pid=%s]" % getpid())
-        self.mqtt_client.publish_state(HEARTBEATER_STATUS, STATUS_NOT_RUNNING)
+        try:
+            self.mqtt_client.publish_state(HEARTBEATER_STATUS, STATUS_NOT_RUNNING)
+        except:
+            pass
 
     def set_mqtt(self, mqtt_client):
         """
@@ -103,29 +107,36 @@ class Heartbeater(object):
 
         self.logger.info("subscribing topic %s" % self.topic)
         client.subscribe(self.topic)
-        publish_state = self.mqtt_client.publish_state
-        register = self.mqtt_client.register
-        # register all metrics
-        register(HEARTBEATER_STATUS, HEARTBEATER_STATUS_NAME, HEARTBEATER_STATUS_ICON)
-        register(HEARTBEATER_MISSED_HEARTBEAT, HEARTBEATER_MISSED_HEARTBEAT_NAME,
-                 HEARTBEATER_MISSED_HEARTBEAT_ICON)
-        register(HEARTBEATER_HA_RESTARTS, HEARTBEATER_HA_RESTARTS_NAME, HEARTBEATER_HA_RESTARTS_ICON)
-        register(HEARTBEATER_SYSTEM_RESTARTS, HEARTBEATER_SYSTEM_RESTARTS_NAME,
-                 HEARTBEATER_SYSTEM_RESTARTS_ICON)
-        register(HEARTBEATER_LAST_HEARTBEAT, HEARTBEATER_LAST_HEARTBEAT_NAME,
-                 HEARTBEATER_LAST_HEARTBEAT_ICON)
-        register(HEARTBEATER_LAST_HA_RESTART, HEARTBEATER_LAST_HA_RESTART_NAME,
-                 HEARTBEATER_LAST_HA_RESTART_ICON)
-        register(HEARTBEATER_LAST_SYSTEM_RESTART, HEARTBEATER_LAST_SYSTEM_RESTART_NAME,
-                 HEARTBEATER_LAST_SYSTEM_RESTART_ICON)
-        # sends initial values
-        publish_state(HEARTBEATER_STATUS, STATUS_RUNNING)
-        publish_state(HEARTBEATER_MISSED_HEARTBEAT, self.missed_heartbeats)
-        publish_state(HEARTBEATER_HA_RESTARTS, self.ha_restarts)
-        publish_state(HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
-        publish_state(HEARTBEATER_LAST_HEARTBEAT, self.get(HEARTBEATER_LAST_HEARTBEAT))
-        publish_state(HEARTBEATER_LAST_HA_RESTART, self.get(HEARTBEATER_LAST_HA_RESTART))
-        publish_state(HEARTBEATER_LAST_SYSTEM_RESTART, self.get(HEARTBEATER_LAST_SYSTEM_RESTART))
+        # first time we are connected we register metrics and
+        # send initial values
+        if not self.registered:
+            try:
+                publish_state = self.mqtt_client.publish_state
+                register = self.mqtt_client.register
+                # register all metrics
+                register(HEARTBEATER_STATUS, HEARTBEATER_STATUS_NAME, HEARTBEATER_STATUS_ICON)
+                register(HEARTBEATER_MISSED_HEARTBEAT, HEARTBEATER_MISSED_HEARTBEAT_NAME,
+                         HEARTBEATER_MISSED_HEARTBEAT_ICON)
+                register(HEARTBEATER_HA_RESTARTS, HEARTBEATER_HA_RESTARTS_NAME, HEARTBEATER_HA_RESTARTS_ICON)
+                register(HEARTBEATER_SYSTEM_RESTARTS, HEARTBEATER_SYSTEM_RESTARTS_NAME,
+                         HEARTBEATER_SYSTEM_RESTARTS_ICON)
+                register(HEARTBEATER_LAST_HEARTBEAT, HEARTBEATER_LAST_HEARTBEAT_NAME,
+                         HEARTBEATER_LAST_HEARTBEAT_ICON)
+                register(HEARTBEATER_LAST_HA_RESTART, HEARTBEATER_LAST_HA_RESTART_NAME,
+                         HEARTBEATER_LAST_HA_RESTART_ICON)
+                register(HEARTBEATER_LAST_SYSTEM_RESTART, HEARTBEATER_LAST_SYSTEM_RESTART_NAME,
+                         HEARTBEATER_LAST_SYSTEM_RESTART_ICON)
+                # sends initial values
+                publish_state(HEARTBEATER_STATUS, STATUS_RUNNING)
+                publish_state(HEARTBEATER_MISSED_HEARTBEAT, self.missed_heartbeats)
+                publish_state(HEARTBEATER_HA_RESTARTS, self.ha_restarts)
+                publish_state(HEARTBEATER_SYSTEM_RESTARTS, self.system_restarts)
+                publish_state(HEARTBEATER_LAST_HEARTBEAT, self.get(HEARTBEATER_LAST_HEARTBEAT))
+                publish_state(HEARTBEATER_LAST_HA_RESTART, self.get(HEARTBEATER_LAST_HA_RESTART))
+                publish_state(HEARTBEATER_LAST_SYSTEM_RESTART, self.get(HEARTBEATER_LAST_SYSTEM_RESTART))
+                self.registered = True
+            except:
+                pass
 
     # noinspection PyUnusedLocal
     def on_message(self, client, userdata, message):
@@ -151,7 +162,11 @@ class Heartbeater(object):
         limit = now() + timedelta(seconds=300)
         self.logger.info("waiting for ha service")
         while running and not self.last_message and now() < limit:
-            self.mqtt_client.loop()
+            try:
+                self.mqtt_client.loop()
+            except:
+                pass
+
             sleep(1)
 
         if self.last_message:
@@ -210,13 +225,17 @@ class Heartbeater(object):
         sends metrics if any to send
         """
 
-        self.mqtt_client.loop()
         publish_state = self.mqtt_client.publish_state
-        for states in self.states_queue:
-            publish_state(states[0], states[1])
+        try:
+            for states in self.states_queue:
+                publish_state(states[0], states[1])
 
-        self.states_queue = []
+            self.states_queue = []
+        except:
+            pass
+
         sleep(1)
+        self.mqtt_client.loop()
 
 
 def start():
