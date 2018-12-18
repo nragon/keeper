@@ -138,9 +138,8 @@ class Connector(object):
         """
         now = datetime.now()
         self.time_connected += (now - self.connected_at).total_seconds()
-        time_since_start = (now - self.started_at).total_seconds()
 
-        return (self.time_connected * 100) / time_since_start >= 90
+        return (self.time_connected * 100) / (now - self.started_at).total_seconds() >= 90
 
     def on_not_connect(self):
         """
