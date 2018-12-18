@@ -5,8 +5,9 @@
     :license: MIT, see LICENSE for more details.
 """
 
-from os import environ
+from os import environ, name
 
+IS_NT = name == "nt"
 KEEPER_HOME = environ["KEEPER_HOME"]
 STATUS_RUNNING = "Running"
 STATUS_NOT_RUNNING = "Not Running"

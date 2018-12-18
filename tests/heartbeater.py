@@ -6,9 +6,7 @@ from unittest import TestCase
 
 environ["KEEPER_HOME"] = join(getcwd(), "heartbeater")
 from runtime.heartbeater import Heartbeater
-
 from kio import Storage, MqttClient
-
 from core import common, constants
 
 
@@ -28,7 +26,7 @@ class TestHeartbeater(TestCase):
         with Storage() as storage:
             try:
                 with Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest", config,
-                                                                             manager=heartbeater):
+                                                                             False, manager=heartbeater):
                     pass
             except Exception as e:
                 pass
@@ -101,7 +99,6 @@ class TestHeartbeater(TestCase):
             self.assertEqual(heartbeater.attempts, 1)
             self.assertEqual(storage.get_int(constants.HEARTBEATER_MISSED_HEARTBEAT), 4)
             self.assertEqual(storage.get_int(constants.HEARTBEATER_HA_RESTARTS), 1)
-
             heartbeater.last_message = datetime.now() - timedelta(seconds=diff)
             heartbeater.monitor()
             self.assertEqual(heartbeater.misses, 2)

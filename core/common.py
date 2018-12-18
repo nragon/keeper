@@ -9,7 +9,7 @@ from os import devnull
 from os.path import join
 from subprocess import call
 from yaml import load
-from core.constants import KEEPER_HOME
+from core.constants import KEEPER_HOME, IS_NT
 
 
 def load_config():
@@ -31,6 +31,6 @@ def exec_command(command):
 
     try:
         with open(devnull, "wb") as dev_null:
-            return call(command, stdout=dev_null, stderr=dev_null) == 0
+            return call(command, stdout=dev_null, stderr=dev_null, shell=IS_NT) == 0
     except Exception:
         return False

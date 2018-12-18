@@ -13,7 +13,7 @@ from setproctitle import setproctitle
 from threading import Event
 from time import sleep
 
-from core import constants, Logger
+from core import Logger, STATUS_RUNNING, STATUS_NOT_RUNNING
 from kio import Storage
 
 running = False
@@ -156,10 +156,10 @@ class Manager(object):
             metric = "%sStatus" % name
             process = self.running_processes.get(name)
             if process and is_running(process):
-                put(metric, constants.STATUS_RUNNING)
+                put(metric, STATUS_RUNNING)
                 continue
 
-            put(metric, constants.STATUS_NOT_RUNNING)
+            put(metric, STATUS_NOT_RUNNING)
             self.logger.info("process %s is not running" % name)
             if process:
                 self.close_process(name, process)

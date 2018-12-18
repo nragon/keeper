@@ -11,7 +11,7 @@ from os import getpid
 from signal import signal, SIGTERM, SIGINT
 from time import sleep, strftime
 from datetime import datetime, timedelta
-from core import exec_command, load_config, constants, Logger, HEARTBEATER_STATUS, STATUS_RUNNING, STATUS_NOT_RUNNING, \
+from core import exec_command, load_config, Logger, HEARTBEATER_STATUS, STATUS_RUNNING, STATUS_NOT_RUNNING, \
     HEARTBEATER_STATUS_NAME, HEARTBEATER_STATUS_ICON, HEARTBEATER_MISSED_HEARTBEAT, HEARTBEATER_MISSED_HEARTBEAT_NAME, \
     HEARTBEATER_MISSED_HEARTBEAT_ICON, HEARTBEATER_HA_RESTARTS, HEARTBEATER_HA_RESTARTS_NAME, \
     HEARTBEATER_HA_RESTARTS_ICON, HEARTBEATER_SYSTEM_RESTARTS, HEARTBEATER_SYSTEM_RESTARTS_NAME, \
@@ -44,11 +44,9 @@ class Heartbeater(object):
         self.registered = False
         put = storage.put
         get_int = storage.get_int
-        self.missed_heartbeats = put(constants.HEARTBEATER_MISSED_HEARTBEAT,
-                                     get_int(constants.HEARTBEATER_MISSED_HEARTBEAT))
-        self.ha_restarts = put(constants.HEARTBEATER_HA_RESTARTS, get_int(constants.HEARTBEATER_HA_RESTARTS))
-        self.system_restarts = put(constants.HEARTBEATER_SYSTEM_RESTARTS,
-                                   get_int(constants.HEARTBEATER_SYSTEM_RESTARTS))
+        self.missed_heartbeats = put(HEARTBEATER_MISSED_HEARTBEAT, get_int(HEARTBEATER_MISSED_HEARTBEAT))
+        self.ha_restarts = put(HEARTBEATER_HA_RESTARTS, get_int(HEARTBEATER_HA_RESTARTS))
+        self.system_restarts = put(HEARTBEATER_SYSTEM_RESTARTS, get_int(HEARTBEATER_SYSTEM_RESTARTS))
         self.put = put
         self.get = storage.get
         self.now = datetime.now

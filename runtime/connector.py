@@ -5,7 +5,7 @@
     :copyright: © 2018 by Nuno Gonçalves
     :license: MIT, see LICENSE for more details.
 """
-
+from datetime import datetime
 from os import getpid
 from signal import signal, SIGTERM, SIGINT
 from time import sleep, strftime
@@ -36,6 +36,9 @@ class Connector(object):
         self.command = config["mqtt.restart.command"].split(" ")
         self.mqtt_client = None
         self.registered = False
+        self.started_at = datetime.now()
+        self.time_connected = 0
+        self.connected_at = None
         put = storage.put
         get_int = storage.get_int
         self.mqtt_restarts = put(CONNECTOR_MQTT_RESTARTS, get_int(CONNECTOR_MQTT_RESTARTS))
@@ -90,6 +93,7 @@ class Connector(object):
         :param rc: rc code
         """
 
+        self.connected_at = datetime.now()
         # first time we are connected we register metrics and
         # send initial values
         if not self.registered:
@@ -123,10 +127,20 @@ class Connector(object):
         :param userdata: userdata dict
         :param rc: rc code
         """
-        try:
-            self.mqtt_client.publish_state(CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK)
-        except:
-            pass
+
+        self.states_queue.append(
+            (CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK if self.is_stable() else CONNECTOR_CONNECTION_OK))
+
+    def is_stable(self):
+        """
+        check if connection is stable by checking if it's up 90% of the time
+        :return: true if connection is stable, false otherwise
+        """
+        now = datetime.now()
+        self.time_connected += (now - self.connected_at).total_seconds()
+        time_since_start = (now - self.started_at).total_seconds()
+
+        return (self.time_connected * 100) / time_since_start >= 90
 
     def on_not_connect(self):
         """

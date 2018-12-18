@@ -82,9 +82,10 @@ class MqttClient(object):
         self.logger.info("disconnected from %s:%s" % (client._host, client._port))
         self.connected = False
         # call custom on disconnect methods if any defined
-        manager = self.manager
-        if manager and manager.on_disconnect:
-            manager.on_disconnect(client, userdata, rc)
+        try:
+            self.manager.on_disconnect(client, userdata, rc)
+        except:
+            pass
 
     # noinspection PyProtectedMember
     def _on_connect(self, client, userdata, flags, rc):
@@ -100,9 +101,10 @@ class MqttClient(object):
         self.logger.info("connected to %s:%s" % (client._host, client._port))
         self.connected = rc == 0
         # call custom on connect methods if any defined
-        manager = self.manager
-        if manager and manager.on_connect:
-            manager.on_connect(client, userdata, flags, rc)
+        try:
+            self.manager.on_connect(client, userdata, flags, rc)
+        except:
+            pass
 
     def _on_message(self, client, userdata, message):
         """
@@ -114,9 +116,10 @@ class MqttClient(object):
         """
 
         # call custom on message methods if any defined
-        manager = self.manager
-        if manager and manager.on_message:
-            manager.on_message(client, userdata, message)
+        try:
+            self.manager.on_message(client, userdata, message)
+        except:
+            pass
 
     def connection_status(self):
         """
@@ -160,10 +163,9 @@ class MqttClient(object):
             status = connection_status()
 
     # noinspection PyProtectedMember
-    def reconnect(self, wait=True):
+    def reconnect(self):
         """
         reconnects to mqtt client
-        :param wait: whether we should wait for connection
         :return: connection status
         """
 
@@ -172,6 +174,7 @@ class MqttClient(object):
         connection_status = self.connection_status
         reconnect = client.reconnect
         status = connection_status()
+        wait = self.wait
         while status != 2:
             try:
                 if status == 0:
@@ -181,12 +184,14 @@ class MqttClient(object):
                         pass
 
                 status = connection_status()
-                manager = self.manager
-                if status == 0 and manager and manager.on_not_connect:
-                    manager.on_not_connect()
+                if status == 0:
+                    try:
+                        self.manager.on_not_connect()
+                    except:
+                        pass
 
                 if not wait:
-                    break
+                    return status
             except Exception:
                 pass
 
