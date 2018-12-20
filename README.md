@@ -36,7 +36,6 @@ Configuration | Definition
 --------------| ----------
 heartbeat.interval | Interval between heartbeat message. This should match number of seconds in home assistant automation
 heartbeat.delay | Number of seconds we should wait before considering a miss heartbeat message
-heartbeat.restart.delay | Seconds to wait between home assistant restarts
 heartbeat.topic | Heartbeat topic
 ha.restart.command | Command to restart home assistant service
 system.restart.command | Command to restart system

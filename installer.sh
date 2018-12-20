@@ -27,7 +27,6 @@ chmod 755 "${KEEPER_HOME}/bin/keeper.sh"
 sudo cat > "${KEEPER_HOME}/config/keeper-config.yaml" <<- EOF
 heartbeat.interval: 30
 heartbeat.delay: 10
-heartbeat.restart.delay: 180
 heartbeat.topic: "homeassistant/binary_sensor/keeper/state"
 ha.restart.command: "sudo systemctl restart home-assistant@homeassistant"
 system.restart.command: "sudo reboot -f"
