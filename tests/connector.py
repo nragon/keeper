@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+    Test connector
+    :copyright: © 2018 by Nuno Gonçalves
+    :license: MIT, see LICENSE for more details.
+"""
+
 from datetime import datetime, timedelta
 from os import environ, getcwd, mkdir
 from os.path import join
@@ -5,10 +12,11 @@ from shutil import rmtree, copy
 from unittest import TestCase
 
 environ["KEEPER_HOME"] = join(getcwd(), "connector")
-from kio import Storage, MqttClient
+from kio import Storage
+from network import MqttClient
 from runtime.connector import Connector
 
-from core import common, constants, CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK
+from core import common, constants
 
 
 class TestConnector(TestCase):

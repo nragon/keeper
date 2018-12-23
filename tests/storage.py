@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+    Test storage
+    :copyright: © 2018 by Nuno Gonçalves
+    :license: MIT, see LICENSE for more details.
+"""
+
 from os import environ, getcwd
 from os.path import join
 from shutil import rmtree

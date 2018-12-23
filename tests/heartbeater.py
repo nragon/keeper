@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+    Test heartbeater
+    :copyright: © 2018 by Nuno Gonçalves
+    :license: MIT, see LICENSE for more details.
+"""
+
 from datetime import datetime, timedelta
 from os import environ, getcwd, mkdir
 from os.path import join
@@ -6,7 +13,8 @@ from unittest import TestCase
 
 environ["KEEPER_HOME"] = join(getcwd(), "heartbeater")
 from runtime.heartbeater import Heartbeater
-from kio import Storage, MqttClient
+from kio import Storage
+from network import MqttClient
 from core import common, constants
 
 

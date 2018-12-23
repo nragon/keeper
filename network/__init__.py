@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-    Imports for kio package
+    Imports for network package
     :copyright: © 2018 by Nuno Gonçalves
     :license: MIT, see LICENSE for more details.
 """
 
-from .storage import Storage
+from .mqtt import MqttClient

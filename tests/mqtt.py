@@ -1,10 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+    Test mqtt
+    :copyright: © 2018 by Nuno Gonçalves
+    :license: MIT, see LICENSE for more details.
+"""
+
 from os import environ, getcwd, mkdir
 from os.path import join
 
 environ["KEEPER_HOME"] = join(getcwd(), "mqtt")
 from shutil import rmtree, copy
 from unittest import TestCase
-from kio.mqtt import MqttClient
+from network import MqttClient
 
 from core import common
 
