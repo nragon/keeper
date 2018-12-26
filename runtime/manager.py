@@ -89,8 +89,8 @@ class Manager(object):
             mod = import_module(process)
             setproctitle("keeper:" + name)
             mod.main()
-        except Exception as e:
-            self.logger.warning("process %s[%s] failed to launch %s" % (name, process, e))
+        except Exception as ex:
+            self.logger.warning("process %s[%s] failed to launch %s" % (name, process, ex))
             pass
 
     def start_process(self, name, module):
@@ -111,14 +111,14 @@ class Manager(object):
                 self.logger.info("launched process %s[pid=%s]" % (name, process.pid))
 
                 return process
-            except Exception as e:
+            except Exception as ex:
                 if attempts >= 3:
                     self.logger.error(
                         "max of 3 launching attempts was reached when  launching process %s[module=%s]: %s" % (
-                            name, module, e))
-                    raise
+                            name, module, ex))
+                    raise ex
 
-                self.logger.warning("error launching process %s[module=%s]: %s" % (name, module, e))
+                self.logger.warning("error launching process %s[module=%s]: %s" % (name, module, ex))
                 attempts += 1
                 self.logger.warning("reattempting launch of %s (%s of 3)" % (name, attempts))
 
@@ -179,9 +179,9 @@ def start():
     with Storage() as storage, Manager(storage) as manager:
         try:
             loop(manager)
-        except Exception as e:
+        except Exception as ex:
             if running:
-                raise e
+                raise ex
 
 
 def loop(manager):

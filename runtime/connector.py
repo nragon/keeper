@@ -26,11 +26,12 @@ class Connector(object):
     Connector logic to restart connections
     """
 
-    def __init__(self, config, storage):
+    def __init__(self, config, storage, mqtt_client):
         """
         initializes connector
         :param config: keeper configuration dict
         :param storage: storage access
+        :param mqtt_client: MQTT client
         """
 
         self.attempts = 0
@@ -41,13 +42,14 @@ class Connector(object):
         self.time_connected = 0
         self.connected_at = None
         put = storage.put
-        get_int = storage.get_int
-        self.mqtt_restarts = put(CONNECTOR_MQTT_RESTARTS, get_int(CONNECTOR_MQTT_RESTARTS))
-        self.failed_connections = put(CONNECTOR_FAILED_CONNECTIONS, get_int(CONNECTOR_FAILED_CONNECTIONS))
+        self.mqtt_restarts = put(CONNECTOR_MQTT_RESTARTS, storage.get_int(CONNECTOR_MQTT_RESTARTS))
+        self.failed_connections = put(CONNECTOR_FAILED_CONNECTIONS, storage.get_int(CONNECTOR_FAILED_CONNECTIONS))
         self.states_queue = []
         self.put = put
         self.get = storage.get
         self.inc = storage.inc
+        mqtt_client.set_manager(self)
+        self.mqtt_client = mqtt_client
         self.logger = Logger()
 
     def __enter__(self):
@@ -57,6 +59,7 @@ class Connector(object):
         """
 
         self.logger.info("starting connector manager[pid=%s]" % getpid())
+        self.mqtt_client.reconnect()
 
         return self
 
@@ -72,16 +75,8 @@ class Connector(object):
         self.logger.info("stopping connector[pid=%s]" % getpid())
         try:
             self.mqtt_client.publish_state(CONNECTOR_STATUS, STATUS_NOT_RUNNING)
-        except:
-            pass
-
-    def set_mqtt(self, mqtt_client):
-        """
-        sets mqtt client
-        :param mqtt_client: mqtt client
-        """
-
-        self.mqtt_client = mqtt_client
+        except Exception as ex:
+            self.logger.error("failed to publish connector status: %s" % ex)
 
     # noinspection PyUnusedLocal
     def on_connect(self, client, userdata, flags, rc):
@@ -117,8 +112,8 @@ class Connector(object):
                 publish_state(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
                 publish_state(CONNECTOR_LAST_MQTT_RESTART, self.get(CONNECTOR_LAST_MQTT_RESTART))
                 self.registered = True
-            except:
-                pass
+            except Exception as ex:
+                self.logger.error("failed to register initial metrics: %s" % ex)
 
     # noinspection PyUnusedLocal
     def on_disconnect(self, client, userdata, rc):
@@ -177,8 +172,8 @@ class Connector(object):
                 publish_state(states[0], states[1])
 
             self.states_queue = []
-        except:
-            pass
+        except Exception as ex:
+            self.logger.warning("unable to update metrics: %s" % ex)
 
         sleep(1)
 
@@ -190,14 +185,14 @@ def start():
     """
 
     config = load_config()
-    with Storage() as storage, Connector(config, storage) as connector, \
-            MqttClient("keeperconnector", config, manager=connector) as mqtt_client:
+    with Storage() as storage, MqttClient("keeperconnector", config) as mqtt_client, Connector(config, storage,
+                                                                                               mqtt_client) as connector:
         del config
         try:
             loop(connector, mqtt_client)
-        except Exception as e:
+        except Exception as ex:
             if running:
-                raise e
+                raise ex
 
 
 def loop(connector, mqtt_client):

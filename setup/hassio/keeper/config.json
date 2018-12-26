@@ -1,0 +1,34 @@
+{
+  "name": "Keeper",
+  "version": "0.1.2",
+  "slug": "keeper",
+  "description": "A service to monitor and maintaining MQTT and HomeAssistant",
+  "url": "https://github.com/nragon/keeper",
+  "startup": "services",
+  "boot": "auto",
+  "host_network": true,
+  "options": {
+    "heartbeat.interval": 30,
+    "heartbeat.delay": 10,
+    "heartbeat.topic": "homeassistant/binary_sensor/keeper/state",
+    "ha.restart.command": "hassio homeassistant restart",
+    "system.restart.command": "hassio host reboot",
+    "mqtt.broker": null,
+    "mqtt.port": null,
+    "mqtt.user": null,
+    "mqtt.pass": null,
+    "mqtt.restart.command": "hassio ad stop -name mqtt && hassio ad start -name mqtt"
+  },
+  "schema": {
+    "heartbeat.interval": "int",
+    "heartbeat.delay": "int",
+    "heartbeat.topic": "str",
+    "ha.restart.command": "str",
+    "system.restart.command": "str",
+    "mqtt.broker": "str",
+    "mqtt.port": "int",
+    "mqtt.user": "str",
+    "mqtt.pass": "str",
+    "mqtt.restart.command": "str"
+  }
+}

@@ -24,32 +24,15 @@ class TestConnector(TestCase):
         mkdir(environ["KEEPER_HOME"])
         config_path = join(environ["KEEPER_HOME"], "config")
         mkdir(config_path)
-        copy(join(environ["KEEPER_HOME"], "..", "..", "config", "keeper-config.yaml"), config_path)
+        copy(join(environ["KEEPER_HOME"], "..", "..", "config", "keeper.json"), config_path)
 
     def tearDown(self):
         rmtree(environ["KEEPER_HOME"])
 
-    def test_not_connected(self):
-        config = common.load_config()
-        config["mqtt.broker"] = "1.1.1.1"
-        with Storage() as storage:
-            try:
-                with Connector(config, storage) as connector, MqttClient("keeperconnectortest", config, False,
-                                                                         manager=connector):
-                    pass
-            except Exception as e:
-                pass
-
-    def test_connected(self):
-        config = common.load_config()
-        with Storage() as storage, Connector(config, storage) as connector, MqttClient("keeperconnectortest", config,
-                                                                                       manager=connector) as mqtt_client:
-            self.assertEqual(mqtt_client.connection_status(), 2)
-
     def test_on_not_connected(self):
         config = common.load_config()
-        with Storage() as storage, Connector(config, storage) as connector, MqttClient("keeperconnectortest", config,
-                                                                                       manager=connector) as mqtt_client:
+        with Storage() as storage, MqttClient("keeperconnectortest", config) as mc, Connector(config, storage,
+                                                                                              mc) as connector:
             connector.on_not_connect()
             self.assertEqual(connector.attempts, 1)
             self.assertEqual(storage.get_int(constants.CONNECTOR_FAILED_CONNECTIONS), 1)
@@ -72,7 +55,8 @@ class TestConnector(TestCase):
 
     def test_stable(self):
         config = common.load_config()
-        with Storage() as storage, Connector(config, storage) as connector:
+        with Storage() as storage, MqttClient("keeperconnectortest", config) as mc, Connector(config, storage,
+                                                                                              mc) as connector:
             now = datetime.now()
             connector.started_at = now - timedelta(seconds=10)
             connector.connected_at = now - timedelta(seconds=9)
@@ -80,7 +64,8 @@ class TestConnector(TestCase):
 
     def test_not_stable(self):
         config = common.load_config()
-        with Storage() as storage, Connector(config, storage) as connector:
+        with Storage() as storage, MqttClient("keeperconnectortest", config) as mc, Connector(config, storage,
+                                                                                              mc) as connector:
             now = datetime.now()
             connector.started_at = now - timedelta(seconds=10)
             connector.connected_at = now - timedelta(seconds=8)

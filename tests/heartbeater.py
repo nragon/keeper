@@ -23,43 +23,23 @@ class TestHeartbeater(TestCase):
         mkdir(environ["KEEPER_HOME"])
         config_path = join(environ["KEEPER_HOME"], "config")
         mkdir(config_path)
-        copy(join(environ["KEEPER_HOME"], "..", "..", "config", "keeper-config.yaml"), config_path)
+        copy(join(environ["KEEPER_HOME"], "..", "..", "config", "keeper.json"), config_path)
 
     def tearDown(self):
         rmtree(environ["KEEPER_HOME"])
 
-    def test_not_connected(self):
-        config = common.load_config()
-        config["mqtt.broker"] = "1.1.1.1"
-        with Storage() as storage:
-            try:
-                with Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest", config,
-                                                                             False, manager=heartbeater):
-                    pass
-            except Exception as e:
-                pass
-
-    def test_connected(self):
-        config = common.load_config()
-        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
-                                                                                           config,
-                                                                                           manager=heartbeater) as mqtt_client:
-            self.assertEqual(mqtt_client.connection_status(), 2)
-
     def test_monitor_in_time_no_delay(self):
         config = common.load_config()
-        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
-                                                                                           config,
-                                                                                           manager=heartbeater):
+        with Storage() as storage, MqttClient("keeperconnectortest", config) as mc, Heartbeater(config, storage,
+                                                                                                mc) as heartbeater:
             heartbeater.last_message = datetime.now() - timedelta(seconds=config["heartbeat.interval"])
             heartbeater.monitor()
             self.assertEqual(storage.get_int(constants.HEARTBEATER_MISSED_HEARTBEAT), 0)
 
     def test_monitor_in_time_delay(self):
         config = common.load_config()
-        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
-                                                                                           config,
-                                                                                           manager=heartbeater):
+        with Storage() as storage, MqttClient("keeperconnectortest", config) as mc, Heartbeater(config, storage,
+                                                                                                mc) as heartbeater:
             heartbeater.last_message = datetime.now() - timedelta(
                 seconds=config["heartbeat.interval"] + config["heartbeat.delay"])
             heartbeater.monitor()
@@ -67,9 +47,8 @@ class TestHeartbeater(TestCase):
 
     def test_monitor_not_in_time(self):
         config = common.load_config()
-        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
-                                                                                           config,
-                                                                                           manager=heartbeater):
+        with Storage() as storage, MqttClient("keeperconnectortest", config) as mc, Heartbeater(config, storage,
+                                                                                                mc) as heartbeater:
             heartbeater.last_message = datetime.now() - timedelta(
                 seconds=config["heartbeat.interval"] + config["heartbeat.delay"] + 1)
             heartbeater.monitor()
@@ -77,9 +56,8 @@ class TestHeartbeater(TestCase):
 
     def test_monitor_restart_ha(self):
         config = common.load_config()
-        with Storage() as storage, Heartbeater(config, storage) as heartbeater, MqttClient("keeperconnectortest",
-                                                                                           config,
-                                                                                           manager=heartbeater):
+        with Storage() as storage, MqttClient("keeperconnectortest", config) as mc, Heartbeater(config, storage,
+                                                                                                mc) as heartbeater:
             diff = config["heartbeat.interval"] + config["heartbeat.delay"] + 1
             heartbeater.last_message = datetime.now() - timedelta(seconds=diff)
             heartbeater.monitor()

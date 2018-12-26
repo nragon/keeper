@@ -4,6 +4,7 @@
     :copyright: © 2018 by Nuno Gonçalves
     :license: MIT, see LICENSE for more details.
 """
+
 from datetime import datetime, timedelta
 from time import sleep
 from paho.mqtt.client import Client
@@ -15,7 +16,7 @@ class MqttClient(object):
     Holds connection and basic methods for accessing mqtt
     """
 
-    def __init__(self, client_id, config, wait=True, manager=None):
+    def __init__(self, client_id, config, wait=True):
         """
         initialize mqtt client
         :param client_id: client id
@@ -23,33 +24,33 @@ class MqttClient(object):
         :param wait: whether to wait for connection
         """
 
+        self.logger = Logger()
         user = config.get("mqtt.user")
         pwd = config.get("mqtt.pass")
         client = Client(client_id=client_id)
         client.on_connect = self._on_connect
         client.on_disconnect = self._on_disconnect
         client.on_message = self._on_message
-        client.disable_logger()
+        client.enable_logger(self.logger)
         if user and pwd:
             client.username_pw_set(user, pwd)
 
         client.connect_async(config["mqtt.broker"], config["mqtt.port"], 30)
         self.client = client
         self.connected = False
-        if manager:
-            manager.set_mqtt(self)
-
-        self.manager = manager
+        self.manager = None
         self.wait = wait
-        self.logger = Logger()
 
     def __enter__(self):
         """
-        create initial connection when entering context
+        tries to connect once when entering context
         :return: MqttClient object
         """
 
-        self.reconnect()
+        try:
+            self.client.reconnect()
+        except Exception as ex:
+            self.logger.warning("Initial MQTT connection failed: %s" % ex)
 
         return self
 
@@ -69,6 +70,14 @@ class MqttClient(object):
 
         self.client = None
 
+    def set_manager(self, manager):
+        """
+        sets associated manager
+        :param manager: manager using connection
+        """
+
+        self.manager = manager
+
     # noinspection PyProtectedMember
     def _on_disconnect(self, client, userdata, rc):
         """
@@ -84,8 +93,9 @@ class MqttClient(object):
         # call custom on disconnect methods if any defined
         try:
             self.manager.on_disconnect(client, userdata, rc)
-        except:
-            pass
+        except Exception as ex:
+            if not isinstance(ex, (TypeError, AttributeError)):
+                self.logger.error("failed to execute custom on_disconnect: %s" % ex)
 
     # noinspection PyProtectedMember
     def _on_connect(self, client, userdata, flags, rc):
@@ -103,8 +113,9 @@ class MqttClient(object):
         # call custom on connect methods if any defined
         try:
             self.manager.on_connect(client, userdata, flags, rc)
-        except:
-            pass
+        except Exception as ex:
+            if not isinstance(ex, (TypeError, AttributeError)):
+                self.logger.error("failed to execute custom on_connect: %s" % ex)
 
     def _on_message(self, client, userdata, message):
         """
@@ -118,8 +129,9 @@ class MqttClient(object):
         # call custom on message methods if any defined
         try:
             self.manager.on_message(client, userdata, message)
-        except:
-            pass
+        except Exception as ex:
+            if not isinstance(ex, (TypeError, AttributeError)):
+                self.logger.error("failed to execute custom on_message: %s" % ex)
 
     def connection_status(self):
         """
@@ -154,10 +166,7 @@ class MqttClient(object):
             # status 1 should only wait for connection
             # instead of reconnecting
             if status == 0:
-                try:
-                    reconnect()
-                except:
-                    pass
+                reconnect()
 
             sleep(1)
             status = connection_status()
@@ -176,24 +185,22 @@ class MqttClient(object):
         status = connection_status()
         wait = self.wait
         while status != 2:
-            try:
-                if status == 0:
-                    try:
-                        reconnect()
-                    except:
-                        pass
+            if status == 0:
+                try:
+                    reconnect()
+                except Exception as ex:
+                    if not isinstance(ex, (TypeError, AttributeError)):
+                        self.logger.warning("failed to connect mqtt: %s" % ex)
 
-                status = connection_status()
-                if status == 0:
-                    try:
-                        self.manager.on_not_connect()
-                    except:
-                        pass
+            status = connection_status()
+            if status == 0:
+                try:
+                    self.manager.on_not_connect()
+                except Exception as ex:
+                    self.logger.error("failed to execute custom on_not_connect: %s" % ex)
 
-                if not wait:
-                    return status
-            except Exception:
-                pass
+            if not wait:
+                return status
 
             sleep(1)
 
@@ -217,9 +224,3 @@ class MqttClient(object):
         """
 
         self.client.publish(STATE_TOPIC % metric, state, 1, True)
-
-    def loop(self):
-        """
-        calls mqtt client loop
-        """
-        self.client.loop()

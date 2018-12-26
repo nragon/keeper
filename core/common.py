@@ -5,20 +5,20 @@
     :license: MIT, see LICENSE for more details.
 """
 
+from json import load
 from os import devnull
 from os.path import join
 from subprocess import call
-from yaml import load
 from core.constants import KEEPER_HOME, IS_NT
 
 
 def load_config():
     """
-    loads configuration from yaml file
+    loads configuration from json file
     :return: returns a configuration dict
     """
 
-    with open(join(KEEPER_HOME, "config", "keeper-config.yaml")) as config:
+    with open(join(KEEPER_HOME, "config", "keeper.json")) as config:
         return load(config)
 
 

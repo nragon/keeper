@@ -1,0 +1,13 @@
+{
+  "heartbeat.interval": 30,
+  "heartbeat.delay": 10,
+  "heartbeat.topic": "homeassistant/binary_sensor/keeper/state",
+  "ha.restart.command": "dir",
+  "system.restart.command": "dir",
+  "mqtt.broker": "",
+  "mqtt.port": null,
+  "mqtt.user": "",
+  "mqtt.pass": "",
+  "mqtt.restart.command": "dir",
+  "debug": true
+}

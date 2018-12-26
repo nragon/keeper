@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 
 set -o posix
-
-if [[ -z "$KEEPER_HOME" ]]; then
-  export KEEPER_HOME="$(cd "`dirname "$0"`"/..; pwd)"
-fi
-
+export KEEPER_HOME="$(cd "`dirname "$0"`"/..; pwd)"
 finish() {
   pkill -9 -P $$
 }

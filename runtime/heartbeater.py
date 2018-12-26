@@ -30,11 +30,12 @@ class Heartbeater(object):
     Heartbeat that monitors heartbeat messages
     """
 
-    def __init__(self, config, storage):
+    def __init__(self, config, storage, mqtt_client):
         """
         initializes heartbeater
         :param config: keeper configuration dict
         :param storage: storage access
+        :param mqtt_client: MQTT client
         """
 
         self.attempts = 0
@@ -44,10 +45,9 @@ class Heartbeater(object):
         self.inc = storage.inc
         self.registered = False
         put = storage.put
-        get_int = storage.get_int
-        self.missed_heartbeats = put(HEARTBEATER_MISSED_HEARTBEAT, get_int(HEARTBEATER_MISSED_HEARTBEAT))
-        self.ha_restarts = put(HEARTBEATER_HA_RESTARTS, get_int(HEARTBEATER_HA_RESTARTS))
-        self.system_restarts = put(HEARTBEATER_SYSTEM_RESTARTS, get_int(HEARTBEATER_SYSTEM_RESTARTS))
+        self.missed_heartbeats = put(HEARTBEATER_MISSED_HEARTBEAT, storage.get_int(HEARTBEATER_MISSED_HEARTBEAT))
+        self.ha_restarts = put(HEARTBEATER_HA_RESTARTS, storage.get_int(HEARTBEATER_HA_RESTARTS))
+        self.system_restarts = put(HEARTBEATER_SYSTEM_RESTARTS, storage.get_int(HEARTBEATER_SYSTEM_RESTARTS))
         self.put = put
         self.get = storage.get
         self.now = datetime.now
@@ -58,6 +58,8 @@ class Heartbeater(object):
         self.topic = config["heartbeat.topic"]
         self.delay = config["heartbeat.delay"]
         self.states_queue = []
+        mqtt_client.set_manager(self)
+        self.mqtt_client = mqtt_client
         self.logger = Logger()
 
     def __enter__(self):
@@ -82,16 +84,8 @@ class Heartbeater(object):
         self.logger.info("stopping heartbeater[pid=%s]" % getpid())
         try:
             self.mqtt_client.publish_state(HEARTBEATER_STATUS, STATUS_NOT_RUNNING)
-        except:
-            pass
-
-    def set_mqtt(self, mqtt_client):
-        """
-        sets mqtt client
-        :param mqtt_client: mqtt client
-        """
-
-        self.mqtt_client = mqtt_client
+        except Exception as ex:
+            self.logger.error("failed to publish heartbeater status: %s" % ex)
 
     # noinspection PyUnusedLocal
     def on_connect(self, client, userdata, flags, rc):
@@ -134,8 +128,8 @@ class Heartbeater(object):
                 publish_state(HEARTBEATER_LAST_HA_RESTART, self.get(HEARTBEATER_LAST_HA_RESTART))
                 publish_state(HEARTBEATER_LAST_SYSTEM_RESTART, self.get(HEARTBEATER_LAST_SYSTEM_RESTART))
                 self.registered = True
-            except:
-                pass
+            except Exception as ex:
+                self.logger.error("failed to register initial metrics: %s" % ex)
 
     # noinspection PyUnusedLocal
     def on_message(self, client, userdata, message):
@@ -160,7 +154,7 @@ class Heartbeater(object):
         now = self.now
         limit = now() + timedelta(seconds=300)
         self.logger.info("waiting for ha service")
-        while running and not self.last_message and now() < limit:
+        while running and self.last_message is None and now() < limit:
             try:
                 self.mqtt_client.loop()
             except:
@@ -230,11 +224,10 @@ class Heartbeater(object):
                 publish_state(states[0], states[1])
 
             self.states_queue = []
-        except:
-            pass
+        except Exception as ex:
+            self.logger.warning("unable to update metrics: %s" % ex)
 
         sleep(1)
-        self.mqtt_client.loop()
 
 
 def start():
@@ -244,14 +237,14 @@ def start():
     """
 
     config = load_config()
-    with Storage() as storage, Heartbeater(config, storage) as heartbeater, \
-            MqttClient("keeperheartbeater", config, manager=heartbeater) as mqtt_client:
+    with Storage() as storage, MqttClient("keeperheartbeater", config) as mqtt_client, \
+            Heartbeater(config, storage, mqtt_client) as heartbeater:
         del config
         try:
             loop(heartbeater, mqtt_client)
-        except Exception as e:
+        except Exception as ex:
             if running:
-                raise e
+                raise ex
 
 
 def loop(heartbeater, mqtt_client):
@@ -270,8 +263,8 @@ def loop(heartbeater, mqtt_client):
             heartbeater.wait_ha_connection()
             continue
 
-        heartbeater.loop()
         heartbeater.monitor()
+        heartbeater.loop()
 
 
 # noinspection PyUnusedLocal

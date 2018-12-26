@@ -6,11 +6,11 @@
 """
 
 from sqlite3 import connect
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from multiprocessing import Manager
 from os import makedirs
 from os.path import join, exists
-from core import KEEPER_HOME
+from core import KEEPER_HOME, Logger
 
 # this should be instantiate by keeper manager
 # and used by runtime managers
@@ -21,6 +21,7 @@ class Storage(object):
     """
     Holds connection and basic methods for accessing storage
     """
+
     # base statements
     INSERT_STATEMENT = "insert or ignore into keystore(value, key) values(?, ?)"
     UPDATE_STATEMENT = "update keystore set value = ? where changes() = 0 and key = ?"
@@ -40,8 +41,8 @@ class Storage(object):
             makedirs(storage_path)
         # create database and kv table
         storage_path = join(storage_path, "keeper.db")
-        with closing(connect(storage_path)) as conn, lock:
-            conn.cursor().execute("create table if not exists keystore(key text primary key, value text)")
+        with lock, self.transaction(connect(storage_path)) as cursor:
+            cursor.execute("create table if not exists keystore(key text primary key, value text)")
 
         self.storage_path = storage_path
         self.conn = None
@@ -86,7 +87,6 @@ class Storage(object):
         # converts numeric type into string
         if isinstance(value, Storage.NUMBER_TYPE):
             value = str(value)
-
         # upsert statement
         binds = (value, key)
         with lock, self.transaction(self.conn) as cursor:
@@ -151,10 +151,12 @@ class Storage(object):
         base context to execute transactions
         :param conn: connection
         """
+
         conn.execute("begin")
         try:
             yield conn.cursor()
-        except:
+        except Exception as ex:
+            Logger().error("unable to complete transaction: %s" % ex)
             conn.rollback()
         else:
             conn.commit()
