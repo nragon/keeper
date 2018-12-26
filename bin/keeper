@@ -12,5 +12,5 @@ if [[ ! -e "${KEEPER_HOME}/log/keeper.log" ]]; then
     touch "${KEEPER_HOME}/log/keeper.log"
 fi
 
-"${KEEPER_HOME}/bin/python3" -u "${KEEPER_HOME}/keeper.py" >> "${KEEPER_HOME}/log/keeper.log" 2>&1
+sudo -E "${KEEPER_HOME}/bin/python3" -u "${KEEPER_HOME}/keeper.py" >> "${KEEPER_HOME}/log/keeper.log" 2>&1
 wait $!

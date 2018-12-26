@@ -166,7 +166,11 @@ class MqttClient(object):
             # instead of reconnecting
             self.logger.debug("connection status is %s", str(status))
             if status == 0:
-                reconnect()
+                try:
+                    self.logger.debug("reconnecting to mqtt")
+                    reconnect()
+                except Exception as ex:
+                    self.logger.debug("failed to connect mqtt: %s", ex)
 
             self.logger.debug("waiting 1 second for connection")
             sleep(1)
@@ -192,8 +196,7 @@ class MqttClient(object):
                     self.logger.debug("reconnecting to mqtt")
                     reconnect()
                 except Exception as ex:
-                    if not isinstance(ex, (TypeError, AttributeError)):
-                        self.logger.warning("failed to connect mqtt: %s" % ex)
+                    self.logger.debug("failed to connect mqtt: %s", ex)
 
             status = connection_status()
             if status == 0:
@@ -201,7 +204,8 @@ class MqttClient(object):
                     self.logger.debug("calling custom on_not_connect")
                     self.manager.on_not_connect()
                 except Exception as ex:
-                    self.logger.error("failed to execute custom on_not_connect: %s" % ex)
+                    if not isinstance(ex, (TypeError, AttributeError)):
+                        self.logger.error("failed to execute custom on_not_connect: %s" % ex)
 
             if not wait:
                 return status
@@ -210,16 +214,15 @@ class MqttClient(object):
 
         return status
 
-    def register(self, metric, name, icon):
+    def register(self, metric, icon):
         """
         register a new metric using mqtt discovery
         :param metric: metric identification
-        :param name: metric name
         :param icon: metric icon
         """
 
         self.logger.debug("registering metrics %s", metric)
-        self.client.publish(CONFIG_TOPIC % metric, CONFIG_PAYLOAD % (name, metric, icon), 1, True)
+        self.client.publish(CONFIG_TOPIC % metric, CONFIG_PAYLOAD % (metric, metric, icon), 1, True)
 
     def publish_state(self, metric, state):
         """

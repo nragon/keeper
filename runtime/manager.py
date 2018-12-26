@@ -90,7 +90,7 @@ class Manager(object):
             setproctitle("keeper:" + name)
             mod.main()
         except Exception as ex:
-            self.logger.warning("process %s[%s] failed to launch %s" % (name, process, ex))
+            self.logger.warning("process %s[%s] failed: %s" % (name, process, ex))
             pass
 
     def start_process(self, name, module):
@@ -165,7 +165,7 @@ class Manager(object):
                 self.close_process(name, process)
 
             put(metric, "Launching")
-            process = self.start_process(name, process)
+            process = self.start_process(name, module)
             put(metric, "Launched")
             self.running_processes[name] = process
 
