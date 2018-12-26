@@ -1,14 +1,28 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
-#lang
+# lang
 ENV LANG C.UTF-8
-#shell
+# shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-#copy setup.sh
-COPY setup.sh /
+# install keeper
+WORKDIR /opt/keeper
+# install required software
+RUN echo "[$(date '+%d/%m/%Y %H:%M:%S') - INFO] installing required software"
+RUN apk add --no-cache python3 python3-venv python3-pip git
+# clone repo
+RUN echo "[$(date '+%d/%m/%Y %H:%M:%S') - INFO] getting latest keeper"
+RUN git clone --depth 1 -b master https://github.com/nragon/keeper.git ./tmp && \
+    mv ./tmp/* . && \
+    rm -rf ./tmp && \
+    rm -rf ./tests && \
+    rm -rf ./setup
+# install requirements
+RUN python3 -m pip install -r requirements.txt
+# copy options
+RUN cp /data/options.json ./config/keeper.json
 # change permissions
-RUN chmod a+x /setup.sh
-CMD [ "/setup.sh" ]
+RUN chmod a+x /opt/keeper/bin/keeper
+CMD [ "/opt/keeper/bin/keeper" ]
 # build arguments
 ARG BUILD_ARCH
 ARG BUILD_VERSION
