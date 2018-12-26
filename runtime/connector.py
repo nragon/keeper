@@ -93,6 +93,7 @@ class Connector(object):
         # first time we are connected we register metrics and
         # send initial values
         if not self.registered:
+            self.logger.info("registering metrics")
             try:
                 publish_state = self.mqtt_client.publish_state
                 register = self.mqtt_client.register
@@ -134,6 +135,7 @@ class Connector(object):
         """
         now = datetime.now()
         self.time_connected += (now - self.connected_at).total_seconds()
+        self.logger.debug("spent %s seconds connected", self.time_connected)
 
         return (self.time_connected * 100) / (now - self.started_at).total_seconds() >= 90
 

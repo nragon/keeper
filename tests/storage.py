@@ -5,9 +5,9 @@
     :license: MIT, see LICENSE for more details.
 """
 
-from os import environ, getcwd
+from os import environ, getcwd, mkdir
 from os.path import join
-from shutil import rmtree
+from shutil import rmtree, copy
 from unittest import TestCase
 
 environ["KEEPER_HOME"] = join(getcwd(), "storage")
@@ -15,6 +15,12 @@ from kio import Storage
 
 
 class TestStorage(TestCase):
+    def setUp(self):
+        mkdir(environ["KEEPER_HOME"])
+        config_path = join(environ["KEEPER_HOME"], "config")
+        mkdir(config_path)
+        copy(join(environ["KEEPER_HOME"], "..", "..", "config", "keeper.json"), config_path)
+
     def tearDown(self):
         rmtree(environ["KEEPER_HOME"])
 

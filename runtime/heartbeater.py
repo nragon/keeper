@@ -51,7 +51,6 @@ class Heartbeater(object):
         self.put = put
         self.get = storage.get
         self.now = datetime.now
-        self.mqtt_client = None
         self.last_message = None
         self.last_known_message = None
         self.interval = config["heartbeat.interval"]
@@ -69,6 +68,7 @@ class Heartbeater(object):
         """
 
         self.logger.info("starting heartbeater manager[pid=%s]" % getpid())
+        self.mqtt_client.reconnect()
 
         return self
 
@@ -103,6 +103,7 @@ class Heartbeater(object):
         # first time we are connected we register metrics and
         # send initial values
         if not self.registered:
+            self.logger.info("registering metrics")
             try:
                 publish_state = self.mqtt_client.publish_state
                 register = self.mqtt_client.register
@@ -141,8 +142,9 @@ class Heartbeater(object):
         """
 
         self.last_message = self.now()
-        self.states_queue.append(
-            (HEARTBEATER_LAST_HEARTBEAT, self.put(HEARTBEATER_LAST_HEARTBEAT, strftime(TIME_FORMAT))))
+        last_message_fmt = strftime(TIME_FORMAT)
+        self.logger.debug("last heartbeat from ha at %s", last_message_fmt)
+        self.states_queue.append((HEARTBEATER_LAST_HEARTBEAT, self.put(HEARTBEATER_LAST_HEARTBEAT, last_message_fmt)))
 
     def wait_ha_connection(self):
         """
@@ -153,12 +155,12 @@ class Heartbeater(object):
         self.last_known_message = None
         now = self.now
         limit = now() + timedelta(seconds=300)
-        self.logger.info("waiting for ha service")
-        while running and self.last_message is None and now() < limit:
+        self.logger.info("waiting for initial ha heartbeat")
+        while running and not self.last_message and now() < limit:
             try:
                 self.mqtt_client.loop()
-            except:
-                pass
+            except Exception as ex:
+                self.logger.warning(ex)
 
             sleep(1)
 
@@ -209,6 +211,7 @@ class Heartbeater(object):
             self.last_known_message = self.last_message
 
         if self.last_known_message != self.last_message:
+            self.logger.debug("resetting counters")
             self.misses = 0
             self.attempts = 0
 

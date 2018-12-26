@@ -36,7 +36,8 @@ class TestMqtt(TestCase):
         config = common.load_config()
         config["mqtt.broker"] = "1.1.1.1"
         try:
-            with MqttClient("keepermqtttest", config, False):
+            with MqttClient("keepermqtttest", config, False) as mqtt_client:
+                mqtt_client.reconnect()
                 pass
         except:
             pass

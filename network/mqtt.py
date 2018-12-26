@@ -43,14 +43,9 @@ class MqttClient(object):
 
     def __enter__(self):
         """
-        tries to connect once when entering context
+        entering context
         :return: MqttClient object
         """
-
-        try:
-            self.client.reconnect()
-        except Exception as ex:
-            self.logger.warning("Initial MQTT connection failed: %s" % ex)
 
         return self
 
@@ -64,6 +59,7 @@ class MqttClient(object):
         """
 
         try:
+            self.logger.debug("disconnecting mqtt client")
             self.client.disconnect()
         except Exception:
             pass
@@ -92,6 +88,7 @@ class MqttClient(object):
         self.connected = False
         # call custom on disconnect methods if any defined
         try:
+            self.logger.debug("calling custom on_disconnect")
             self.manager.on_disconnect(client, userdata, rc)
         except Exception as ex:
             if not isinstance(ex, (TypeError, AttributeError)):
@@ -112,6 +109,7 @@ class MqttClient(object):
         self.connected = rc == 0
         # call custom on connect methods if any defined
         try:
+            self.logger.debug("calling custom on_connect")
             self.manager.on_connect(client, userdata, flags, rc)
         except Exception as ex:
             if not isinstance(ex, (TypeError, AttributeError)):
@@ -128,6 +126,7 @@ class MqttClient(object):
 
         # call custom on message methods if any defined
         try:
+            self.logger.debug("calling custom on_message")
             self.manager.on_message(client, userdata, message)
         except Exception as ex:
             if not isinstance(ex, (TypeError, AttributeError)):
@@ -165,9 +164,11 @@ class MqttClient(object):
             # reconnects when not connected, status 0
             # status 1 should only wait for connection
             # instead of reconnecting
+            self.logger.debug("connection status is %s", str(status))
             if status == 0:
                 reconnect()
 
+            self.logger.debug("waiting 1 second for connection")
             sleep(1)
             status = connection_status()
 
@@ -185,8 +186,10 @@ class MqttClient(object):
         status = connection_status()
         wait = self.wait
         while status != 2:
+            self.logger.debug("connection status is %s", str(status))
             if status == 0:
                 try:
+                    self.logger.debug("reconnecting to mqtt")
                     reconnect()
                 except Exception as ex:
                     if not isinstance(ex, (TypeError, AttributeError)):
@@ -195,6 +198,7 @@ class MqttClient(object):
             status = connection_status()
             if status == 0:
                 try:
+                    self.logger.debug("calling custom on_not_connect")
                     self.manager.on_not_connect()
                 except Exception as ex:
                     self.logger.error("failed to execute custom on_not_connect: %s" % ex)
@@ -214,6 +218,7 @@ class MqttClient(object):
         :param icon: metric icon
         """
 
+        self.logger.debug("registering metrics %s", metric)
         self.client.publish(CONFIG_TOPIC % metric, CONFIG_PAYLOAD % (name, metric, icon), 1, True)
 
     def publish_state(self, metric, state):
@@ -223,4 +228,11 @@ class MqttClient(object):
         :param state: state value
         """
 
+        self.logger.debug("updating metric %s with state %s", metric, state)
         self.client.publish(STATE_TOPIC % metric, state, 1, True)
+
+    def loop(self):
+        """
+        calls mqtt client loop
+        """
+        self.client.loop()

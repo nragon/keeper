@@ -35,12 +35,15 @@ class Storage(object):
         initializes storage object
         """
 
+        self.logger = Logger()
         # creates storage directory if not present
         storage_path = join(KEEPER_HOME, "storage")
         if not exists(storage_path):
+            self.logger.debug("creating directory %s for storage", storage_path)
             makedirs(storage_path)
         # create database and kv table
         storage_path = join(storage_path, "keeper.db")
+        self.logger.debug("creating initial key value in %s storage", storage_path)
         with lock, self.transaction(connect(storage_path)) as cursor:
             cursor.execute("create table if not exists keystore(key text primary key, value text)")
 
@@ -53,6 +56,7 @@ class Storage(object):
         :return: Storage object
         """
 
+        self.logger.debug("creating storage connection for %s", self.storage_path)
         conn = connect(self.storage_path)
         conn.execute("pragma journal_mode=wal")
         self.conn = conn
@@ -69,6 +73,7 @@ class Storage(object):
         """
 
         try:
+            self.logger.debug("closing storage connection of %s", self.storage_path)
             self.conn.close()
         except Exception:
             pass
@@ -89,6 +94,7 @@ class Storage(object):
             value = str(value)
         # upsert statement
         binds = (value, key)
+        self.logger.debug("storing value %s for key %s", value, key)
         with lock, self.transaction(self.conn) as cursor:
             cursor.execute(Storage.INSERT_STATEMENT, binds)
             cursor.execute(Storage.UPDATE_STATEMENT, binds)
@@ -106,6 +112,7 @@ class Storage(object):
 
         value += inc_value
         binds = (value, key)
+        self.logger.debug("incrementing key %s by %s", key, inc_value)
         with lock, self.transaction(self.conn) as cursor:
             cursor.execute(Storage.INSERT_STATEMENT, binds)
             cursor.execute(Storage.UPDATE_STATEMENT, binds)
@@ -120,8 +127,9 @@ class Storage(object):
         """
 
         result = self.conn.cursor().execute(Storage.SELECT_STATEMENT, (key,)).fetchone()
+        result = result[0] if result else None
 
-        return result[0] if result else None
+        return result
 
     def get_int(self, key):
         """
@@ -152,11 +160,14 @@ class Storage(object):
         :param conn: connection
         """
 
+        self.logger.debug("beginning transaction")
         conn.execute("begin")
         try:
             yield conn.cursor()
         except Exception as ex:
+            self.logger.debug("transaction rolled back")
             Logger().error("unable to complete transaction: %s" % ex)
             conn.rollback()
         else:
+            self.logger.debug("transaction committed")
             conn.commit()

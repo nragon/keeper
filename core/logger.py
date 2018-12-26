@@ -23,7 +23,7 @@ class Logger(object):
         """
 
         self.format = "%s " + current_process().name + "-keeper[%s]: %s"
-        self.debug = bool(load_config()["debug"])
+        self.is_debug = bool(load_config()["debug"])
 
     def info(self, message):
         """
@@ -49,16 +49,28 @@ class Logger(object):
 
         self._log(ERROR, message)
 
+    def debug(self, message, *args):
+        """
+        prints a debug message
+        :param message: message
+        :param args: arguments
+        """
+
+        self.log(DEBUG, message, *args)
+
     def log(self, level, message, *args):
         """
-        prints an message with args
+        prints a message with args
         :param level: log level
         :param message: message
         :param args: arguments
         """
 
-        if level != DEBUG or self.debug:
-            self._log(level, message % args)
+        if level != DEBUG or self.is_debug:
+            if args:
+                message = message % args
+
+            self._log(level, message)
 
     def _log(self, level, message):
         """
