@@ -21,10 +21,10 @@ sudo apt-get install -y python3 python3-venv python3-pip git
 # clone repo
 echo "[$(date '+%d/%m/%Y %H:%M:%S') - INFO] getting latest keeper"
 git clone --depth 1 -b master https://github.com/nragon/keeper.git "${KEEPER_HOME}/tmp" && \
+rm -rf "${KEEPER_HOME}/tmp/setup" && \
+rm -rf "${KEEPER_HOME}/tmp/tests" && \
 mv ${KEEPER_HOME}/tmp/* "${KEEPER_HOME}" && \
-rm -rf "${KEEPER_HOME}/tmp" && \
-rm -rf "${KEEPER_HOME}/tests" && \
-rm -rf "${KEEPER_HOME}/setup"
+rm -rf "${KEEPER_HOME}/tmp"
 # creating a venv to execute keeper
 echo "[$(date '+%d/%m/%Y %H:%M:%S') - INFO] creating virtual environment"
 python3 -m venv "${KEEPER_HOME}" && \

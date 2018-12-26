@@ -12,10 +12,10 @@ RUN apk add --no-cache python3 python3-venv python3-pip git
 # clone repo
 RUN echo "[$(date '+%d/%m/%Y %H:%M:%S') - INFO] getting latest keeper"
 RUN git clone --depth 1 -b master https://github.com/nragon/keeper.git ./tmp && \
+    rm -rf ./tmp/tests && \
+    rm -rf ./tmp/setup && \
     mv ./tmp/* . && \
-    rm -rf ./tmp && \
-    rm -rf ./tests && \
-    rm -rf ./setup
+    rm -rf ./tmp
 # install requirements
 RUN python3 -m pip install -r requirements.txt
 # copy options

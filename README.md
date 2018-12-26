@@ -15,7 +15,8 @@ In MQTT case, it's only performed a service restart every 3 missed connections
 # Installation
 Download Keeper release (replace <version> with pretended version)
 ```` 
-wget -q --show-progress --no-use-server-timestamps https://github.com/nragon/keeper/archive/<version>.tar.gz
+wget https://raw.githubusercontent.com/nragon/keeper/master/setup/systemd/setup && chmod a+x setup && ./setup
+
 ````
 Unpack package and change to unpacked directory
 ````` 
