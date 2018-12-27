@@ -34,6 +34,7 @@ class Connector(object):
         """
 
         self.attempts = 0
+        self.was_stable = True
         self.command = config["mqtt.restart.command"].split(" ")
         self.mqtt_client = None
         self.registered = False
@@ -121,19 +122,26 @@ class Connector(object):
         :param rc: rc code
         """
 
+        self.was_stable = self.is_stable()
         self.states_queue.append(
-            (CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_NOK if self.is_stable() else CONNECTOR_CONNECTION_OK))
+            (CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK if self.was_stable else CONNECTOR_CONNECTION_NOK))
 
-    def is_stable(self):
+    def is_stable(self, update=True):
         """
         check if connection is stable by checking if it's up 90% of the time
+        :param update: whether we should update total time connected
         :return: true if connection is stable, false otherwise
         """
         now = datetime.now()
-        self.time_connected += (now - self.connected_at).total_seconds()
-        self.logger.debug("spent %s seconds connected", self.time_connected)
+        if update:
+            self.time_connected += (now - self.connected_at).total_seconds()
+            tc = self.time_connected
+        else:
+            tc = self.time_connected + (now - self.connected_at).total_seconds()
 
-        return (self.time_connected * 100) / (now - self.started_at).total_seconds() >= 90
+        self.logger.debug("spent %s seconds connected", tc)
+
+        return (tc * 100) / (now - self.started_at).total_seconds() >= 90
 
     def on_not_connect(self):
         """
@@ -163,6 +171,11 @@ class Connector(object):
         sleeps 1 second until next validation
         sends metrics if any to send
         """
+
+        if not self.was_stable:
+            self.was_stable = self.is_stable(False)
+            self.states_queue.append(
+                (CONNECTOR_CONNECTION_STATUS, CONNECTOR_CONNECTION_OK if self.was_stable else CONNECTOR_CONNECTION_NOK))
 
         publish_state = self.mqtt_client.publish_state
         try:
