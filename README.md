@@ -8,27 +8,25 @@ In MQTT case, it's only performed a service restart every 3 missed connections
 
 # Table of Contents
 - [Installation](#installation)
-- [Configuration](#installation)
+- [Configuration](#configuration)
 - [Home Assistant](#homeassistant)
+    - [systemd](#systemd)
+    - [Hass.io](#hassio)
 - [Contributing](#contributing)
 - [Licensing](#licensing)
+
 # Installation
-Download Keeper release (replace <version> with pretended version)
+## systemd
 ```` 
 wget https://raw.githubusercontent.com/nragon/keeper/master/setup/systemd/setup && chmod a+x setup && ./setup
+````
 
+## Hass.io
+Follow instructions on how to install third party add-ons [here](https://www.home-assistant.io/hassio/installing_third_party_addons/).
+Use the following URL when required:
 ````
-Unpack package and change to unpacked directory
-````` 
-tar xvf <version>.tar.gz
-cd keeper-<versions>
-`````
-Execute installer script
+https://github.com/nragon/keeper/tree/master/setup/hassio
 ````
-chmod 755 installer.sh
-sudo ./installer.sh
-````
-Follow instructions
 
 # Configuration
 You can find a set of properties in a yaml file inside [config](config) directory that can be tuned and configured according with you own settings
