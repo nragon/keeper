@@ -3,26 +3,43 @@ FROM $BUILD_FROM
 # lang
 ENV LANG C.UTF-8
 # shell
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+SHELL ["/bin/bash", "-o", "pipefail", "-c", "-e"]
 # install keeper
 WORKDIR /opt/keeper
+# variables for print
+ARG NC="\e[0m"
+ARG GREEN="\e[1;32m"
+ARG RED="\e[1;31m"
+ARG TICK="[${GREEN}✓${NC}]"
+ARG INFO="[i]"
+ARG DONE="${GREEN} done!${NC}"
+ARG OVER="\\r\\033[K"
 # install required software
-RUN echo "[$(date '+%d/%m/%Y %H:%M:%S') - INFO] installing required software"
-RUN apk add --no-cache python3 python3-venv python3-pip git
+RUN printf "  %b installing required software..." "${INFO}"
+RUN apk add --no-cache python3 python3-venv python3-pip git > /dev/null
+RUN printf "%b  %b required software installed\\n" "${OVER}" "${TICK}"
 # clone repo
-RUN echo "[$(date '+%d/%m/%Y %H:%M:%S') - INFO] getting latest keeper"
-RUN git clone --depth 1 -b master https://github.com/nragon/keeper.git ./tmp && \
+RUN printf "  %b downloading keeper repo..." "${INFO}"
+RUN git clone --depth 1 -b master https://github.com/nragon/keeper.git ./tmp > /dev/null && \
     rm -rf ./tmp/tests && \
     rm -rf ./tmp/setup && \
     mv ./tmp/* . && \
     rm -rf ./tmp
+RUN printf "%b  %b keeper repo downloaded\\n" "${OVER}" "${TICK}"
 # install requirements
-RUN python3 -m pip install -r requirements.txt
+RUN printf "  %b creating virtual environment..." "${INFO}"
+RUN python3 -m pip install -r requirements.txt > /dev/null
+RUN printf "%b  %b virtual environment\\n" "${OVER}" "${TICK}"
 # copy options
+RUN printf "  %b configuring properties..." "${INFO}"
 RUN cp /data/options.json ./config/keeper.json
+RUN printf "%b  %b properties configured\\n" "${OVER}" "${TICK}"
 # change permissions
+RUN printf "  %b enabling keeper..." "${INFO}"
 RUN chmod a+x /opt/keeper/bin/keeper
 CMD [ "/opt/keeper/bin/keeper" ]
+RUN printf "%b  %b keeper enabled\\n" "${OVER}" "${TICK}"
+RUN printf "%b" "${DONE}\\n"
 # build arguments
 ARG BUILD_ARCH
 ARG BUILD_VERSION
