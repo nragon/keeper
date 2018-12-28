@@ -18,7 +18,7 @@ In MQTT case, it's only performed a service restart every 3 missed connections
 # Installation
 ## systemd
 ```` 
-wget https://raw.githubusercontent.com/nragon/keeper/master/setup/systemd/setup && chmod a+x setup && ./setup
+curl -sSL https://raw.githubusercontent.com/nragon/keeper/master/setup/systemd/setup | bash
 ````
 
 ## Hass.io
