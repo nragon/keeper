@@ -29,7 +29,7 @@ https://github.com/nragon/keeper/tree/master/setup/hassio
 ````
 
 # Configuration
-You can find a set of properties in a yaml file inside [config](config) directory that can be tuned and configured according with you own settings
+You can find a set of properties in a json file inside [config](config) directory that can be tuned and configured according with you own settings
 
 Configuration | Definition
 --------------| ----------

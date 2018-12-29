@@ -1,3 +1,7 @@
+# dockerfile for hassio addon
+# copyright: © 2018 by Nuno Gonçalves
+# license: MIT, see LICENSE for more details.
+
 ARG BUILD_FROM
 FROM $BUILD_FROM
 # lang
