@@ -163,6 +163,7 @@ class Connector(object):
         else:
             self.attempts += 1
             self.failed_connections = self.inc(CONNECTOR_FAILED_CONNECTIONS, self.failed_connections)
+            self.states_queue.append((CONNECTOR_FAILED_CONNECTIONS, self.failed_connections))
             self.logger.warning("broker is not responding (%s of 3)" % self.attempts)
             sleep(10)
 
