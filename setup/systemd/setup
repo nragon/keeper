@@ -70,7 +70,9 @@ printf "%b  %b required software installed\\n" "${OVER}" "${TICK}"
 # clone repo
 # remove unnecessary folder from repo
 printf "  %b downloading keeper repo..." "${INFO}"
-git clone --depth 1 -b master https://github.com/nragon/keeper.git "${KEEPER_HOME}/tmp" > /dev/null && \
+sudo mkdir -p "${KEEPER_HOME}/tmp" && \
+sudo chown ${USER}:${USER} "${KEEPER_HOME}/tmp" && \
+git clone --depth 1 -b master https://github.com/nragon/keeper.git "${KEEPER_HOME}/tmp" > /dev/null 2>&1 && \
 rm -rf "${KEEPER_HOME}/tmp/setup" && \
 rm -rf "${KEEPER_HOME}/tmp/tests" && \
 mv ${KEEPER_HOME}/tmp/* "${KEEPER_HOME}" && \
@@ -143,7 +145,7 @@ printf "%b  %b service created\\n" "${OVER}" "${TICK}"
 printf "  %b enabling and starting keeper..." "${INFO}"
 chmod a+x "${KEEPER_HOME}/bin/keeper" && \
 sudo systemctl daemon-reload && \
-sudo systemctl enable keeper > /dev/null && \
+sudo systemctl enable keeper > /dev/null 2>&1 && \
 sudo systemctl restart keeper
 printf "%b  %b keeper enabled and started\\n" "${OVER}" "${TICK}"
 printf "%b" "${DONE}\\n"
