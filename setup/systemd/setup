@@ -40,7 +40,7 @@ KEEPER_HOME="/opt/keeper"
 # clean home or create installation dir
 printf "  %b preparing for install..." "${INFO}"
 if [[ ! -d ${KEEPER_HOME} ]]; then
-    sudo mkdir -p ${KEEPER_HOME}
+    sudo mkdir -p ${KEEPER_HOME} && \
     sudo chown ${USER}:${USER} ${KEEPER_HOME}
 else
     sudo rm -rf ${KEEPER_HOME}
