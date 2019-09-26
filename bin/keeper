@@ -1,16 +1,26 @@
 #!/usr/bin/env bash
+# launcher for keeper
+# copyright: © 2018 by Nuno Gonçalves
+# license: MIT, see LICENSE for more details.
 
-set -o posix
-export KEEPER_HOME="$(cd "`dirname "$0"`"/..; pwd)"
+# -e exit if any command has a non-zero exit status
+# avoids partial installation
+set -e
+KEEPER_HOME="$(
+  cd "$(dirname "$0")"/.. || exit
+  pwd
+)"
+
+export KEEPER_HOME
 finish() {
   pkill -9 -P $$
 }
 
 trap finish EXIT
 if [[ ! -e "${KEEPER_HOME}/log/keeper.log" ]]; then
-    mkdir "${KEEPER_HOME}/log"
-    touch "${KEEPER_HOME}/log/keeper.log"
+  mkdir "${KEEPER_HOME}/log"
+  touch "${KEEPER_HOME}/log/keeper.log"
 fi
 
-"${KEEPER_HOME}/bin/python3" -u "${KEEPER_HOME}/keeper.py" >> "${KEEPER_HOME}/log/keeper.log" 2>&1
+"${KEEPER_HOME}/bin/python3" -u "${KEEPER_HOME}/keeper.py" >>"${KEEPER_HOME}/log/keeper.log" 2>&1
 wait $!

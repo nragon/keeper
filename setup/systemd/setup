@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# setup process for systemd usage
+# install process for systemd usage
 # copyright: © 2018 by Nuno Gonçalves
 # license: MIT, see LICENSE for more details.
 
@@ -12,7 +12,7 @@ NC="\e[0m"
 GREEN="\e[1;32m"
 RED="\e[1;31m"
 TICK="[${GREEN}✓${NC}]"
-CROSS="[${RED}✗${NC}]"
+CROSS="[${RED}✗”${NC}]"
 INFO="[i]"
 DONE="${GREEN} done!${NC}"
 OVER="\\r\\033[K"
@@ -21,112 +21,16 @@ printf "  %b checking system..." "${INFO}"
 # checking if systemd is installed
 # installation depends on systemd to run
 if [[ ! -x "$(command -v systemctl)" ]]; then
-    printf "  %b systemd is required!\\n" "${CROSS}"
-    exit 1;
+  printf "  %b systemd is required!\\n" "${CROSS}"
+  exit 1
 fi
 
 printf "%b  %b systemd installed\\n" "${OVER}" "${TICK}"
-# kill all processes launched by this setup
-finish() {
-  pkill -9 -P $$
-}
-
-trap finish EXIT
-# get current user
-if [[ -z "${USER}" ]]; then
-  USER="$(id -un)"
-fi
-KEEPER_HOME="/opt/keeper"
-# clean home or create installation dir
-printf "  %b preparing for install..." "${INFO}"
-if [[ ! -d ${KEEPER_HOME} ]]; then
-    sudo mkdir -p ${KEEPER_HOME} && \
-    sudo chown ${USER}:${USER} ${KEEPER_HOME}
-else
-    sudo rm -rf ${KEEPER_HOME}
-fi
-
-printf "%b  %b installation ready to proceed\\n" "${OVER}" "${TICK}"
-# install required software
-printf "  %b installing required software..." "${INFO}"
-# check for apt-get
-if [[ -x "$(command -v apt-get)" ]]; then
-    # we are on debian env
-    sudo apt-get install -y python3 python3-venv python3-pip git whiptail > /dev/null
-# check for rpm
-elif [[ -x "$(command -v rpm)" ]]; then
-    # we are on red hat env
-    if [[ -x "$(command -v dnf)" ]]; then
-        sudo dnf install -y python3 python3-venv python3-pip git whiptail > /dev/null
-    else
-        sudo yum install -y python3 python3-venv python3-pip git whiptail > /dev/null
-    fi
-else
-    printf "  %b distribution not supported\\n" "${CROSS}"
-    exit 1
-fi
-
-printf "%b  %b required software installed\\n" "${OVER}" "${TICK}"
-# clone repo
-# remove unnecessary folder from repo
-printf "  %b downloading keeper repo..." "${INFO}"
-sudo mkdir -p "${KEEPER_HOME}/tmp" && \
-sudo chown ${USER}:${USER} "${KEEPER_HOME}/tmp" && \
-git clone --depth 1 -b master https://github.com/nragon/keeper.git "${KEEPER_HOME}/tmp" > /dev/null 2>&1 && \
-rm -rf "${KEEPER_HOME}/tmp/setup" && \
-rm -rf "${KEEPER_HOME}/tmp/tests" && \
-mv ${KEEPER_HOME}/tmp/* "${KEEPER_HOME}" && \
-rm -rf "${KEEPER_HOME}/tmp"
-printf "%b  %b keeper repo downloaded\\n" "${OVER}" "${TICK}"
-# creating a venv to execute keeper
-printf "  %b creating virtual environment..." "${INFO}"
-python3 -m venv "${KEEPER_HOME}" && \
-source "${KEEPER_HOME}/bin/activate"
-printf "%b  %b virtual environment created\\n" "${OVER}" "${TICK}"
-# install requirements
-printf "  %b installing required components..." "${INFO}"
-python3 -m pip install -r "${KEEPER_HOME}/requirements.txt" > /dev/null && \
-deactivate
-printf "%b  %b required components installed\\n" "${OVER}" "${TICK}"
-# configuring properties
-printf "  %b configuring properties..." "${INFO}"
-size=$(stty size || printf '%d %d' 24 80)
-printf -v rows '%d' "${size%% *}"
-printf -v columns '%d' "${size##* }"
-r=$(( rows / 2 ))
-c=$(( columns / 2 ))
-r=$(( r < 20 ? 20 : r ))
-c=$(( c < 70 ? 70 : c ))
-CANCEL="  %bCancel was selected, exiting installer%b\\n"
-hi=$(whiptail --backtitle "Configuring properties" --inputbox "Heartbeat Interval" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-hd=$(whiptail --backtitle "Configuring properties" --inputbox "Heartbeat Delay" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-ht=$(whiptail --backtitle "Configuring properties" --inputbox "Heartbeat Topic" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-hrc=$(whiptail --backtitle "Configuring properties" --inputbox "HA Restart Command" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-src=$(whiptail --backtitle "Configuring properties" --inputbox "System Restart Command" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-mb=$(whiptail --backtitle "Configuring properties" --inputbox "MQTT Broker" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-mp=$(whiptail --backtitle "Configuring properties" --inputbox "MQTT Port" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-mu=$(whiptail --backtitle "Configuring properties" --inputbox "MQTT User" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-mpw=$(whiptail --backtitle "Configuring properties" --passwordbox "MQTT Password" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-mrc=$(whiptail --backtitle "Configuring properties" --inputbox "MQTT Restart Command" ${r} ${c} "" 3>&1 1>&2 2>&3) || { printf "${CANCEL}" "${RED}" "${NC}"; exit 1; }
-cat > "${KEEPER_HOME}/config/keeper.json" <<- EOF
-{
-    "heartbeat.interval": ${hi},
-    "heartbeat.delay": ${hd},
-    "heartbeat.topic": "${ht}",
-    "ha.restart.command": "${hrc}",
-    "system.restart.command": "${src}",
-    "mqtt.broker": "${mb}",
-    "mqtt.port": ${mp},
-    "mqtt.user": "${mu}",
-    "mqtt.pass": "${mpw}",
-    "mqtt.restart.command": "${mrc}",
-    "debug": false
-}
-EOF
-printf "%b  %b properties configured\\n" "${OVER}" "${TICK}"
+# install
+. ../install
 # create systemd service
 printf "  %b creating service..." "${INFO}"
-cat > "${KEEPER_HOME}/config/keeper.service" <<- EOF
+cat >"${KEEPER_HOME}/config/keeper.service" <<-EOF
 [Unit]
 Description=keeper service
 After=network.target
@@ -145,7 +49,7 @@ printf "%b  %b service created\\n" "${OVER}" "${TICK}"
 printf "  %b enabling and starting keeper..." "${INFO}"
 chmod a+x "${KEEPER_HOME}/bin/keeper" && \
 sudo systemctl daemon-reload && \
-sudo systemctl enable keeper > /dev/null 2>&1 && \
+sudo systemctl enable keeper >/dev/null 2>&1 && \
 sudo systemctl restart keeper
 printf "%b  %b keeper enabled and started\\n" "${OVER}" "${TICK}"
 printf "%b" "${DONE}\\n"
